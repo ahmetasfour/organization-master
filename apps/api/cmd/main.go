@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"membership-system/api/config"
+	"membership-system/api/internal/features/applications"
 	"membership-system/api/internal/features/auth"
 	"membership-system/api/internal/features/logs"
 	"membership-system/api/internal/router"
@@ -38,6 +39,7 @@ func main() {
 	// Initialize repositories
 	authRepo := auth.NewRepository(db)
 	logRepo := logs.NewRepository(db)
+	appRepo := applications.NewRepository(db)
 
 	// Parse JWT TTL durations
 	accessTTL, err := time.ParseDuration(cfg.JWTAccessTTL)
@@ -58,9 +60,11 @@ func main() {
 		accessTTL,
 		refreshTTL,
 	)
+	appService := applications.NewService(appRepo, authRepo, logRepo)
 
 	// Initialize handlers
 	authHandler := auth.NewHandler(authService)
+	appHandler := applications.NewHandler(appService)
 
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
@@ -72,7 +76,7 @@ func main() {
 	app.Use(recover.New())
 
 	// Setup routes
-	router.SetupRoutes(app, authHandler, authService, logRepo)
+	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)

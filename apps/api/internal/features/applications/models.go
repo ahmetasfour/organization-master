@@ -56,6 +56,8 @@ type Application struct {
 	ApplicantEmail string            `gorm:"type:varchar(255);not null;index" json:"applicant_email"`
 	ApplicantPhone string            `gorm:"type:varchar(50)" json:"applicant_phone,omitempty"`
 	ApplicantBio   string            `gorm:"type:text" json:"applicant_bio,omitempty"`
+	LinkedInURL    string            `gorm:"type:varchar(500)" json:"linkedin_url,omitempty"`
+	PhotoURL       string            `gorm:"type:varchar(500)" json:"photo_url,omitempty"`
 	MembershipType MembershipType    `gorm:"type:enum('asil','akademik','profesyonel','öğrenci','onursal');not null;index" json:"membership_type"`
 	Status         ApplicationStatus `gorm:"type:enum('başvuru_alındı','referans_bekleniyor','referans_tamamlandı','referans_red','yk_ön_incelemede','ön_onaylandı','yk_red','itibar_taramasında','itibar_temiz','itibar_red','danışma_sürecinde','danışma_red','öneri_alındı','yik_değerlendirmede','yik_red','gündemde','kabul','reddedildi');not null;default:'başvuru_alındı';index" json:"status"`
 

@@ -1,6 +1,7 @@
 package router
 
 import (
+	"membership-system/api/internal/features/applications"
 	"membership-system/api/internal/features/auth"
 	"membership-system/api/internal/features/logs"
 	"membership-system/api/internal/middleware"
@@ -9,7 +10,13 @@ import (
 )
 
 // SetupRoutes configures all application routes
-func SetupRoutes(app *fiber.App, authHandler *auth.Handler, authService *auth.Service, logRepo *logs.Repository) {
+func SetupRoutes(
+	app *fiber.App,
+	authHandler *auth.Handler,
+	authService *auth.Service,
+	logRepo *logs.Repository,
+	appHandler *applications.Handler,
+) {
 	// Apply global middleware
 	app.Use(middleware.CORSMiddleware())
 	app.Use(middleware.AuditMiddleware(logRepo))
@@ -30,9 +37,15 @@ func SetupRoutes(app *fiber.App, authHandler *auth.Handler, authService *auth.Se
 	authGroup.Post("/refresh", authHandler.Refresh)
 	authGroup.Post("/logout", middleware.AuthMiddleware(authService), authHandler.Logout)
 
+	// Public application submission
+	api.Post("/applications", appHandler.Submit)
+
 	// Protected routes (require authentication)
 	protected := api.Group("", middleware.AuthMiddleware(authService))
 
-	// Placeholder for future routes
-	_ = protected
+	// Application routes with RBAC
+	protected.Get("/applications", middleware.YKOrKoordinator(), appHandler.ListAll)
+	protected.Get("/applications/:id", appHandler.GetByID)
+	protected.Get("/applications/:id/timeline", middleware.YKOrAdmin(), appHandler.GetTimeline)
+	protected.Get("/applications/:id/red-history", middleware.YKOrAdmin(), appHandler.GetRedHistory)
 }

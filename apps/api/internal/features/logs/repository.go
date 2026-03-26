@@ -40,3 +40,8 @@ func (r *Repository) FindByAction(ctx context.Context, action string) ([]Log, er
 		Find(&logs).Error
 	return logs, err
 }
+
+// DB exposes the underlying gorm.DB for advanced queries.
+func (r *Repository) DB() *gorm.DB {
+	return r.db
+}
