@@ -1,0 +1,61 @@
+package shared
+
+import "github.com/gofiber/fiber/v2"
+
+// APIResponse represents the unified API response structure
+type APIResponse struct {
+	Success bool        `json:"success"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   *APIError   `json:"error,omitempty"`
+}
+
+// APIError represents error details in API responses
+type APIError struct {
+	Code    string            `json:"code"`
+	Message string            `json:"message"`
+	Fields  map[string]string `json:"fields,omitempty"`
+}
+
+// Success sends a successful API response
+func Success(c *fiber.Ctx, data interface{}) error {
+	return c.Status(fiber.StatusOK).JSON(APIResponse{
+		Success: true,
+		Data:    data,
+	})
+}
+
+// Error sends an error API response
+func Error(c *fiber.Ctx, status int, code string, message string) error {
+	return c.Status(status).JSON(APIResponse{
+		Success: false,
+		Error: &APIError{
+			Code:    code,
+			Message: message,
+		},
+	})
+}
+
+// ValidationError sends a validation error response with field-specific errors
+func ValidationError(c *fiber.Ctx, fields map[string]string) error {
+	return c.Status(fiber.StatusBadRequest).JSON(APIResponse{
+		Success: false,
+		Error: &APIError{
+			Code:    "VALIDATION_ERROR",
+			Message: "Validation failed",
+			Fields:  fields,
+		},
+	})
+}
+
+// Created sends a 201 Created response
+func Created(c *fiber.Ctx, data interface{}) error {
+	return c.Status(fiber.StatusCreated).JSON(APIResponse{
+		Success: true,
+		Data:    data,
+	})
+}
+
+// NoContent sends a 204 No Content response
+func NoContent(c *fiber.Ctx) error {
+	return c.SendStatus(fiber.StatusNoContent)
+}

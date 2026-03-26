@@ -6,8 +6,12 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"membership-system/api/config"
+	"membership-system/api/internal/features/auth"
+	"membership-system/api/internal/features/logs"
+	"membership-system/api/internal/router"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/recover"
@@ -31,6 +35,33 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
+	// Initialize repositories
+	authRepo := auth.NewRepository(db)
+	logRepo := logs.NewRepository(db)
+
+	// Parse JWT TTL durations
+	accessTTL, err := time.ParseDuration(cfg.JWTAccessTTL)
+	if err != nil {
+		log.Fatalf("Failed to parse JWT access TTL: %v", err)
+	}
+	refreshTTL, err := time.ParseDuration(cfg.JWTRefreshTTL)
+	if err != nil {
+		log.Fatalf("Failed to parse JWT refresh TTL: %v", err)
+	}
+
+	// Initialize services
+	authService := auth.NewService(
+		authRepo,
+		logRepo,
+		cfg.JWTSecret,
+		cfg.JWTRefreshSecret,
+		accessTTL,
+		refreshTTL,
+	)
+
+	// Initialize handlers
+	authHandler := auth.NewHandler(authService)
+
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "Membership Management System API v1.0",
@@ -40,14 +71,8 @@ func main() {
 	// Global middleware
 	app.Use(recover.New())
 
-	// Health check route
-	app.Get("/api/v1/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status":  "ok",
-			"version": "1.0.0",
-			"env":     cfg.AppEnv,
-		})
-	})
+	// Setup routes
+	router.SetupRoutes(app, authHandler, authService, logRepo)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
