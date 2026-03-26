@@ -3,6 +3,16 @@ package config
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+
+	"membership-system/api/internal/features/applications"
+	"membership-system/api/internal/features/auth"
+	"membership-system/api/internal/features/consultations"
+	"membership-system/api/internal/features/logs"
+	"membership-system/api/internal/features/references"
+	"membership-system/api/internal/features/reputation"
+	"membership-system/api/internal/features/voting"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -61,7 +71,113 @@ func RunMigrations(db *gorm.DB) error {
 		log.Println("[DB] Skipping migrations (no database connection)")
 		return nil
 	}
-	log.Println("[DB] Running migrations...")
-	log.Println("[DB] Migrations complete")
+
+	log.Println("[DB] Running SQL migrations...")
+
+	// Execute SQL migration files in order
+	migrationFiles := []string{
+		"migrations/001_users.sql",
+		"migrations/002_applications.sql",
+		"migrations/003_references.sql",
+		"migrations/004_reference_responses.sql",
+		"migrations/005_consultations.sql",
+		"migrations/006_reputation_contacts.sql",
+		"migrations/007_votes.sql",
+		"migrations/008_web_publish_consents.sql",
+		"migrations/009_logs.sql",
+	}
+
+	for _, migrationFile := range migrationFiles {
+		if err := executeSQLFile(db, migrationFile); err != nil {
+			return fmt.Errorf("failed to execute %s: %w", migrationFile, err)
+		}
+		log.Printf("[DB] ✓ Executed %s", filepath.Base(migrationFile))
+	}
+
+	// Create trigger separately
+	if err := createRejectionReasonTrigger(db); err != nil {
+		log.Printf("[DB] ⚠ Failed to create trigger (may already exist): %v", err)
+	} else {
+		log.Println("[DB] ✓ Created rejection_reason immutability trigger")
+	}
+
+	log.Println("[DB] Running GORM AutoMigrate...")
+
+	// Run GORM AutoMigrate for all models
+	if err := db.AutoMigrate(
+		&auth.User{},
+		&applications.Application{},
+		&references.Reference{},
+		&references.ReferenceResponse{},
+		&consultations.Consultation{},
+		&reputation.ReputationContact{},
+		&voting.Vote{},
+		&logs.Log{},
+	); err != nil {
+		return fmt.Errorf("failed to auto-migrate models: %w", err)
+	}
+
+	log.Println("[DB] ✓ Migrations complete")
+	return nil
+}
+
+// createRejectionReasonTrigger creates the trigger to enforce immutability
+func createRejectionReasonTrigger(db *gorm.DB) error {
+	// Drop trigger if exists
+	_ = db.Exec("DROP TRIGGER IF EXISTS prevent_rejection_reason_update").Error
+
+	// Create the trigger
+	triggerSQL := `
+CREATE TRIGGER prevent_rejection_reason_update
+BEFORE UPDATE ON applications
+FOR EACH ROW
+BEGIN
+    IF OLD.rejection_reason IS NOT NULL 
+       AND NEW.rejection_reason IS NOT NULL 
+       AND OLD.rejection_reason != NEW.rejection_reason THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'rejection_reason is immutable once set';
+    END IF;
+END`
+
+	return db.Exec(triggerSQL).Error
+}
+
+// executeSQLFile reads and executes a SQL file
+func executeSQLFile(db *gorm.DB, filePath string) error {
+	// Try multiple possible paths
+	possiblePaths := []string{
+		filePath,
+		filepath.Join("apps/api", filePath),
+		filepath.Join("../../", filePath),
+	}
+
+	var sqlBytes []byte
+	var err error
+	var foundPath string
+
+	for _, path := range possiblePaths {
+		sqlBytes, err = os.ReadFile(path)
+		if err == nil {
+			foundPath = path
+			break
+		}
+	}
+
+	if err != nil {
+		log.Printf("[DB] ⚠ Migration file not found: %s (skipping)", filePath)
+		return nil
+	}
+
+	sql := string(sqlBytes)
+	if sql == "" {
+		return nil
+	}
+
+	// Execute the SQL
+	if err := db.Exec(sql).Error; err != nil {
+		return fmt.Errorf("failed to execute SQL from %s: %w", foundPath, err)
+	}
+
 	return nil
 }

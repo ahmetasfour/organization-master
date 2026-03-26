@@ -8,25 +8,25 @@ import (
 )
 
 type Config struct {
-	DBHost string
-	DBPort int
-	DBName string
-	DBUser string
-	DBPass string
+	DBHost string `mapstructure:"DB_HOST"`
+	DBPort int    `mapstructure:"DB_PORT"`
+	DBName string `mapstructure:"DB_NAME"`
+	DBUser string `mapstructure:"DB_USER"`
+	DBPass string `mapstructure:"DB_PASS"`
 
-	JWTSecret        string
-	JWTRefreshSecret string
-	JWTAccessTTL     string
-	JWTRefreshTTL    string
+	JWTSecret        string `mapstructure:"JWT_SECRET"`
+	JWTRefreshSecret string `mapstructure:"JWT_REFRESH_SECRET"`
+	JWTAccessTTL     string `mapstructure:"JWT_ACCESS_TTL"`
+	JWTRefreshTTL    string `mapstructure:"JWT_REFRESH_TTL"`
 
-	AppBaseURL string
-	AppPort    int
-	AppEnv     string
+	AppBaseURL string `mapstructure:"APP_BASE_URL"`
+	AppPort    int    `mapstructure:"APP_PORT"`
+	AppEnv     string `mapstructure:"APP_ENV"`
 
-	MailHost     string
-	MailPort     int
-	MailFrom     string
-	MailFromName string
+	MailHost     string `mapstructure:"MAIL_HOST"`
+	MailPort     int    `mapstructure:"MAIL_PORT"`
+	MailFrom     string `mapstructure:"MAIL_FROM"`
+	MailFromName string `mapstructure:"MAIL_FROM_NAME"`
 }
 
 func Load() (*Config, error) {
