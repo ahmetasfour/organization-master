@@ -16,6 +16,7 @@ import (
 	"membership-system/api/internal/features/logs"
 	"membership-system/api/internal/features/notifications"
 	"membership-system/api/internal/features/references"
+	"membership-system/api/internal/features/reputation"
 	"membership-system/api/internal/router"
 
 	"github.com/gofiber/fiber/v2"
@@ -80,11 +81,15 @@ func main() {
 	consultRepo := consultations.NewRepository(db)
 	consultService := consultations.NewService(consultRepo, authRepo, logRepo, notifySvc, db)
 
+	reputationRepo := reputation.NewRepository(db)
+	reputationService := reputation.NewService(reputationRepo, authRepo, logRepo, notifySvc, db)
+
 	// Initialize handlers
 	authHandler := auth.NewHandler(authService)
 	appHandler := applications.NewHandler(appService, refService)
 	refHandler := references.NewHandler(refService)
 	consultHandler := consultations.NewHandler(consultService)
+	reputationHandler := reputation.NewHandler(reputationService)
 
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
@@ -96,7 +101,7 @@ func main() {
 	app.Use(recover.New())
 
 	// Setup routes
-	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler, refHandler, consultHandler)
+	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler, refHandler, consultHandler, reputationHandler)
 
 	// Start reminder cron (context cancelled on shutdown)
 	cronCtx, cancelCron := context.WithCancel(context.Background())

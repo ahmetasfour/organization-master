@@ -6,6 +6,7 @@ import (
 	"membership-system/api/internal/features/consultations"
 	"membership-system/api/internal/features/logs"
 	"membership-system/api/internal/features/references"
+	"membership-system/api/internal/features/reputation"
 	"membership-system/api/internal/middleware"
 
 	"github.com/gofiber/fiber/v2"
@@ -20,6 +21,7 @@ func SetupRoutes(
 	appHandler *applications.Handler,
 	refHandler *references.Handler,
 	consultHandler *consultations.Handler,
+	reputationHandler *reputation.Handler,
 ) {
 	// Apply global middleware
 	app.Use(middleware.CORSMiddleware())
@@ -77,5 +79,20 @@ func SetupRoutes(
 	protected.Get("/applications/:id/consultations",
 		middleware.YKOrKoordinator(),
 		consultHandler.ListForApplication,
+	)
+
+	// ─── Public reputation token-response routes (no auth required) ────────────
+	repGroup := api.Group("/reputation/respond")
+	repGroup.Get("/:token", reputationHandler.GetFormData)
+	repGroup.Post("/:token", reputationHandler.SubmitResponse)
+
+	// Reputation management — protected
+	protected.Post("/applications/:id/reputation/contacts",
+		middleware.YKOrKoordinator(),
+		reputationHandler.AddContacts,
+	)
+	protected.Get("/applications/:id/reputation",
+		middleware.YKOrKoordinator(),
+		reputationHandler.GetStatus,
 	)
 }

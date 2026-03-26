@@ -5,10 +5,11 @@ import { useState } from 'react';
 import { RedHistoryBanner } from '../../../../components/applications/RedHistoryBanner';
 import { StatusBadge } from '../../../../components/applications/StatusBadge';
 import { StatusTimeline } from '../../../../components/applications/StatusTimeline';
+import { ReputationPanel } from '../../../../components/reputation/ReputationPanel';
 import { useApplication, useRedHistory, useTimeline } from '../../../../lib/hooks/useApplications';
 import { useAuthStore } from '../../../../lib/store/auth.store';
 
-type Tab = 'overview' | 'timeline' | 'red-history';
+type Tab = 'overview' | 'timeline' | 'red-history' | 'reputation';
 
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
@@ -40,6 +41,10 @@ export default function ApplicationDetailPage() {
     { key: 'overview', label: 'Genel Bilgi' },
     { key: 'timeline', label: 'Zaman Çizelgesi' },
     ...(canViewRedHistory ? [{ key: 'red-history' as Tab, label: 'Red Geçmişi' }] : []),
+    ...(['asil', 'akademik'].includes(app.membership_type) &&
+    ['yk', 'koordinator', 'admin'].includes(role)
+      ? [{ key: 'reputation' as Tab, label: 'İtibar Tarama' }]
+      : []),
   ];
 
   return (
@@ -205,6 +210,16 @@ export default function ApplicationDetailPage() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Tab: İtibar Tarama */}
+        {activeTab === 'reputation' && (
+          <div className="bg-white border border-gray-200 border-t-0 rounded-b-xl p-6">
+            <ReputationPanel
+              applicationId={id}
+              membershipType={app.membership_type}
+            />
           </div>
         )}
       </div>
