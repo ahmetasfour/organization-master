@@ -4,6 +4,7 @@ import (
 	"membership-system/api/internal/features/applications"
 	"membership-system/api/internal/features/auth"
 	"membership-system/api/internal/features/logs"
+	"membership-system/api/internal/features/references"
 	"membership-system/api/internal/middleware"
 
 	"github.com/gofiber/fiber/v2"
@@ -16,6 +17,7 @@ func SetupRoutes(
 	authService *auth.Service,
 	logRepo *logs.Repository,
 	appHandler *applications.Handler,
+	refHandler *references.Handler,
 ) {
 	// Apply global middleware
 	app.Use(middleware.CORSMiddleware())
@@ -37,6 +39,11 @@ func SetupRoutes(
 	authGroup.Post("/refresh", authHandler.Refresh)
 	authGroup.Post("/logout", middleware.AuthMiddleware(authService), authHandler.Logout)
 
+	// ─── Public token-response routes (no auth required) ───────────────────────
+	refGroup := api.Group("/ref/respond")
+	refGroup.Get("/:token", refHandler.GetFormData)
+	refGroup.Post("/:token", refHandler.SubmitResponse)
+
 	// Public application submission
 	api.Post("/applications", appHandler.Submit)
 
@@ -48,4 +55,10 @@ func SetupRoutes(
 	protected.Get("/applications/:id", appHandler.GetByID)
 	protected.Get("/applications/:id/timeline", middleware.YKOrAdmin(), appHandler.GetTimeline)
 	protected.Get("/applications/:id/red-history", middleware.YKOrAdmin(), appHandler.GetRedHistory)
+
+	// Reference resend — koordinator or admin only
+	protected.Post("/applications/:id/references/resend/:refId",
+		middleware.KoordinatorOnly(),
+		refHandler.ResendToken,
+	)
 }

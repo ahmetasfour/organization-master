@@ -1,6 +1,7 @@
 package applications
 
 import (
+	"context"
 	"errors"
 	"strconv"
 
@@ -11,17 +12,26 @@ import (
 	"gorm.io/gorm"
 )
 
+// ReferenceCreator abstracts the reference service to avoid a direct import cycle.
+// It is satisfied by *references.Service.
+type ReferenceCreator interface {
+	CreateForApplication(ctx context.Context, appID, applicantName, applicantEmail, membershipType string, refereeUserIDs []string) error
+}
+
 // Handler handles HTTP requests for the applications feature.
 type Handler struct {
-	service  *Service
-	validate *validator.Validate
+	service    *Service
+	refCreator ReferenceCreator // optional — nil for types that don't use references
+	validate   *validator.Validate
 }
 
 // NewHandler creates a new applications handler.
-func NewHandler(service *Service) *Handler {
+// refCreator may be nil if reference creation is not needed (e.g. in tests).
+func NewHandler(service *Service, refCreator ReferenceCreator) *Handler {
 	return &Handler{
-		service:  service,
-		validate: validator.New(),
+		service:    service,
+		refCreator: refCreator,
+		validate:   validator.New(),
 	}
 }
 
@@ -49,6 +59,30 @@ func (h *Handler) Submit(c *fiber.Ctx) error {
 	result, err := h.service.Submit(c.Context(), &req, actorID)
 	if err != nil {
 		return mapError(c, err)
+	}
+
+	// For asil/akademik applications, create reference records and send emails.
+	if h.refCreator != nil && (req.MembershipType == MembershipAsil || req.MembershipType == MembershipAkademik) {
+		refereeIDs := make([]string, 0, len(req.References))
+		for _, r := range req.References {
+			refereeIDs = append(refereeIDs, r.UserID)
+		}
+		if err := h.refCreator.CreateForApplication(
+			c.Context(),
+			result.Application.ID,
+			result.Application.ApplicantName,
+			result.Application.ApplicantEmail,
+			string(result.Application.MembershipType),
+			refereeIDs,
+		); err != nil {
+			// Non-fatal: the application is created — log and return partial success.
+			return shared.Created(c, fiber.Map{
+				"application":      result.Application,
+				"repeat_applicant": result.RepeatApplicant,
+				"previous_app_id":  result.PreviousAppID,
+				"warning":          "Application created but reference emails could not be sent: " + err.Error(),
+			})
+		}
 	}
 
 	return shared.Created(c, fiber.Map{

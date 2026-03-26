@@ -138,7 +138,7 @@ func (r *Repository) CheckLinkedInUniqueness(ctx context.Context, linkedInURL, e
 	}
 	var count int64
 	q := r.db.WithContext(ctx).Model(&Application{}).
-		Where("linkedin_url = ?", linkedInURL)
+		Where("linked_in_url = ?", linkedInURL)
 	if excludeID != "" {
 		q = q.Where("id != ?", excludeID)
 	}

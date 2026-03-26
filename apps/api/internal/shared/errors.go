@@ -7,6 +7,9 @@ var (
 	// ErrApplicationTerminated indicates an application has been terminated and cannot be modified
 	ErrApplicationTerminated = errors.New("application has been terminated and cannot be modified")
 
+	// ErrTokenNotFound indicates the token was not found in the database
+	ErrTokenNotFound = errors.New("token not found")
+
 	// ErrTokenExpired indicates a token has expired
 	ErrTokenExpired = errors.New("token has expired")
 

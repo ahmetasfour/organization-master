@@ -12,6 +12,8 @@ import (
 	"membership-system/api/internal/features/applications"
 	"membership-system/api/internal/features/auth"
 	"membership-system/api/internal/features/logs"
+	"membership-system/api/internal/features/notifications"
+	"membership-system/api/internal/features/references"
 	"membership-system/api/internal/router"
 
 	"github.com/gofiber/fiber/v2"
@@ -40,6 +42,7 @@ func main() {
 	authRepo := auth.NewRepository(db)
 	logRepo := logs.NewRepository(db)
 	appRepo := applications.NewRepository(db)
+	refRepo := references.NewRepository(db)
 
 	// Parse JWT TTL durations
 	accessTTL, err := time.ParseDuration(cfg.JWTAccessTTL)
@@ -51,6 +54,15 @@ func main() {
 		log.Fatalf("Failed to parse JWT refresh TTL: %v", err)
 	}
 
+	// Initialize notifications
+	mailer := notifications.NewMailer(notifications.MailerConfig{
+		Host:     cfg.MailHost,
+		Port:     cfg.MailPort,
+		From:     cfg.MailFrom,
+		FromName: cfg.MailFromName,
+	})
+	notifySvc := notifications.NewService(mailer, db, cfg.AppBaseURL)
+
 	// Initialize services
 	authService := auth.NewService(
 		authRepo,
@@ -61,10 +73,12 @@ func main() {
 		refreshTTL,
 	)
 	appService := applications.NewService(appRepo, authRepo, logRepo)
+	refService := references.NewService(refRepo, authRepo, logRepo, notifySvc, db)
 
 	// Initialize handlers
 	authHandler := auth.NewHandler(authService)
-	appHandler := applications.NewHandler(appService)
+	appHandler := applications.NewHandler(appService, refService)
+	refHandler := references.NewHandler(refService)
 
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
@@ -76,7 +90,7 @@ func main() {
 	app.Use(recover.New())
 
 	// Setup routes
-	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler)
+	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler, refHandler)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
