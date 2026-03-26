@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -97,6 +98,11 @@ func main() {
 	// Setup routes
 	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler, refHandler, consultHandler)
 
+	// Start reminder cron (context cancelled on shutdown)
+	cronCtx, cancelCron := context.WithCancel(context.Background())
+	reminderJob := notifications.NewReminderJob(db, notifySvc, cfg.AppBaseURL)
+	reminderJob.Start(cronCtx)
+
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -111,6 +117,7 @@ func main() {
 
 	<-quit
 	log.Println("[APP] Shutting down server...")
+	cancelCron()
 	if err := app.Shutdown(); err != nil {
 		log.Printf("[APP] Error during shutdown: %v", err)
 	}

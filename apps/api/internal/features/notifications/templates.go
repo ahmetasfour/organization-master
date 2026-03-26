@@ -65,6 +65,17 @@ type RejectedData struct {
 	ApplicantName string
 }
 
+// HonoraryProposalData is the data passed to honorary_proposal_notify.html.
+// Sent to each YK member when an honorary membership proposal is submitted.
+type HonoraryProposalData struct {
+	YKMemberName    string
+	ProposerName    string
+	NomineeName     string
+	NomineeLinkedIn string
+	ProposalReason  string
+	ReviewURL       string
+}
+
 // ─── Renderer ──────────────────────────────────────────────────────────────────
 
 // Render parses an HTML template string and executes it with the provided data.
