@@ -15,8 +15,13 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Membership Management System",
-  description: "Admin dashboard for membership management",
+  title: "Teknokratlar Derneği - Yönetim Paneli",
+  description: "Teknokratlar Derneği üyelik ve başvuru yönetim sistemi",
+  icons: {
+    icon: '/teknokratlar-logo.svg',
+    shortcut: '/teknokratlar-logo.svg',
+    apple: '/teknokratlar-logo.svg',
+  },
 };
 
 export default function RootLayout({

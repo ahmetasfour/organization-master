@@ -37,7 +37,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <aside className="w-60 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b border-gray-200">
-          <span className="font-bold text-gray-900 text-lg">Üyelik Yönetimi</span>
+          <div className="flex items-center">
+            <img src="/teknokratlar-logo.svg" alt="Teknokratlar" className="h-8 w-auto mr-3" />
+            <span className="font-bold text-gray-900 text-sm">Teknokratlar<br />Derneği</span>
+          </div>
         </div>
 
         {/* Nav */}

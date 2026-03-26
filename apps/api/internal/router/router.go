@@ -7,6 +7,7 @@ import (
 	"membership-system/api/internal/features/logs"
 	"membership-system/api/internal/features/references"
 	"membership-system/api/internal/features/reputation"
+	"membership-system/api/internal/features/voting"
 	"membership-system/api/internal/middleware"
 
 	"github.com/gofiber/fiber/v2"
@@ -22,6 +23,7 @@ func SetupRoutes(
 	refHandler *references.Handler,
 	consultHandler *consultations.Handler,
 	reputationHandler *reputation.Handler,
+	votingHandler *voting.Handler,
 ) {
 	// Apply global middleware
 	app.Use(middleware.CORSMiddleware())
@@ -94,5 +96,26 @@ func SetupRoutes(
 	protected.Get("/applications/:id/reputation",
 		middleware.YKOrKoordinator(),
 		reputationHandler.GetStatus,
+	)
+
+	// ─── Voting routes ──────────────────────────────────────────────────────────
+	// GET votes summary (yk + admin)
+	protected.Get("/applications/:id/votes",
+		middleware.YKOrAdmin(),
+		votingHandler.GetVotes,
+	)
+
+	// POST votes by stage
+	protected.Post("/applications/:id/votes/yk-prelim",
+		middleware.YKOnly(),
+		votingHandler.CastVotePrelim,
+	)
+	protected.Post("/applications/:id/votes/yik",
+		middleware.YIKOnly(),
+		votingHandler.CastVoteYIK,
+	)
+	protected.Post("/applications/:id/votes/yk-final",
+		middleware.YKOnly(),
+		votingHandler.CastVoteFinal,
 	)
 }
