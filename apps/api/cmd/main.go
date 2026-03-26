@@ -11,6 +11,7 @@ import (
 	"membership-system/api/config"
 	"membership-system/api/internal/features/applications"
 	"membership-system/api/internal/features/auth"
+	"membership-system/api/internal/features/consultations"
 	"membership-system/api/internal/features/logs"
 	"membership-system/api/internal/features/notifications"
 	"membership-system/api/internal/features/references"
@@ -75,10 +76,14 @@ func main() {
 	appService := applications.NewService(appRepo, authRepo, logRepo)
 	refService := references.NewService(refRepo, authRepo, logRepo, notifySvc, db)
 
+	consultRepo := consultations.NewRepository(db)
+	consultService := consultations.NewService(consultRepo, authRepo, logRepo, notifySvc, db)
+
 	// Initialize handlers
 	authHandler := auth.NewHandler(authService)
 	appHandler := applications.NewHandler(appService, refService)
 	refHandler := references.NewHandler(refService)
+	consultHandler := consultations.NewHandler(consultService)
 
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
@@ -90,7 +95,7 @@ func main() {
 	app.Use(recover.New())
 
 	// Setup routes
-	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler, refHandler)
+	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler, refHandler, consultHandler)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)

@@ -92,6 +92,42 @@ const tmplAccepted = `<!DOCTYPE html>
 </body>
 </html>`
 
+const tmplConsultationRequest = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:sans-serif;max-width:600px;margin:auto;padding:20px">
+  <h2 style="color:#1a1a2e">Üye Danışma Talebi</h2>
+  <p>Sayın <strong>{{.MemberName}}</strong>,</p>
+  <p>
+    <strong>{{.ApplicantName}}</strong> adlı kişi
+    <strong>{{.MembershipType}}</strong> üyeliği için başvurmuştur.
+  </p>
+  {{if .ApplicantLinkedIn}}
+  <p>LinkedIn: <a href="{{.ApplicantLinkedIn}}">{{.ApplicantLinkedIn}}</a></p>
+  {{end}}
+  <p>Görüşünüzü bildirmek için aşağıdaki bağlantıya tıklayınız:</p>
+  <p>
+    <a href="{{.ResponseURL}}" style="
+      display:inline-block;
+      background:#1a73e8;
+      color:#fff;
+      padding:12px 24px;
+      border-radius:4px;
+      text-decoration:none;
+      font-weight:600
+    ">Görüşümü Bildir</a>
+  </p>
+  <p style="color:#666;font-size:0.875rem">
+    Bu bağlantı <strong>{{.ExpiresAt}}</strong> tarihinde geçerliliğini yitirecektir.<br>
+    Bağlantı yalnızca <strong>bir kez</strong> kullanılabilir.
+  </p>
+  <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
+  <p style="color:#999;font-size:0.75rem">
+    Bu e-postayı yanlışlıkla aldıysanız lütfen dikkate almayınız.
+  </p>
+</body>
+</html>`
+
 // CRITICAL: rejection email must NOT include rejection_reason.
 const tmplRejected = `<!DOCTYPE html>
 <html>
@@ -189,6 +225,39 @@ func (s *Service) SendNewRefNeeded(
 	}
 
 	s.logEmail(ctx, appID, "application", "email.new_ref_needed", applicantEmail)
+	return nil
+}
+
+// SendConsultationRequest sends a tokenized consultation-request email to a member.
+func (s *Service) SendConsultationRequest(
+	ctx context.Context,
+	memberEmail, memberName string,
+	rawToken string,
+	applicantName, membershipType, applicantLinkedIn string,
+	expiresAt time.Time,
+) error {
+	responseURL := fmt.Sprintf("%s/respond/consultation/%s", s.baseURL, rawToken)
+
+	data := ConsultationData{
+		MemberName:        memberName,
+		ApplicantName:     applicantName,
+		MembershipType:    membershipType,
+		ApplicantLinkedIn: applicantLinkedIn,
+		ResponseURL:       responseURL,
+		ExpiresAt:         FormatTime(expiresAt),
+	}
+
+	html, text, err := Render(tmplConsultationRequest, data)
+	if err != nil {
+		return err
+	}
+
+	subject := "[Membership System] Üye Danışma Talebi"
+	if err := s.mailer.Send(memberEmail, subject, html, text); err != nil {
+		return fmt.Errorf("notifications: send consultation request: %w", err)
+	}
+
+	s.logEmail(ctx, "", "consultation", "email.consultation_request", memberEmail)
 	return nil
 }
 

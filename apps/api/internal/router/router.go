@@ -3,6 +3,7 @@ package router
 import (
 	"membership-system/api/internal/features/applications"
 	"membership-system/api/internal/features/auth"
+	"membership-system/api/internal/features/consultations"
 	"membership-system/api/internal/features/logs"
 	"membership-system/api/internal/features/references"
 	"membership-system/api/internal/middleware"
@@ -18,6 +19,7 @@ func SetupRoutes(
 	logRepo *logs.Repository,
 	appHandler *applications.Handler,
 	refHandler *references.Handler,
+	consultHandler *consultations.Handler,
 ) {
 	// Apply global middleware
 	app.Use(middleware.CORSMiddleware())
@@ -60,5 +62,20 @@ func SetupRoutes(
 	protected.Post("/applications/:id/references/resend/:refId",
 		middleware.KoordinatorOnly(),
 		refHandler.ResendToken,
+	)
+
+	// ─── Public consultation token-response routes (no auth required) ──────────
+	consultGroup := api.Group("/consult/respond")
+	consultGroup.Get("/:token", consultHandler.GetFormData)
+	consultGroup.Post("/:token", consultHandler.SubmitResponse)
+
+	// Consultation management — protected
+	protected.Post("/applications/:id/consultations",
+		middleware.KoordinatorOnly(),
+		consultHandler.AddConsultees,
+	)
+	protected.Get("/applications/:id/consultations",
+		middleware.YKOrKoordinator(),
+		consultHandler.ListForApplication,
 	)
 }

@@ -7,27 +7,42 @@ import (
 	"gorm.io/gorm"
 )
 
-// Consultation represents a consultation process for Profesyonel/Öğrenci applications
+// ConsultationResponseType represents the consulted member's response classification.
+type ConsultationResponseType string
+
+const (
+	ConsultResponsePositive ConsultationResponseType = "positive"
+	ConsultResponseNegative ConsultationResponseType = "negative"
+)
+
+// Consultation represents a single consultation record for a Profesyonel/Öğrenci application.
+// Each record holds a single-use, 48-hour token sent to an existing system member.
 type Consultation struct {
-	ID               string `gorm:"type:char(36);primaryKey" json:"id"`
-	ApplicationID    string `gorm:"type:char(36);not null;index" json:"application_id"`
-	AssignedToUserID string `gorm:"type:char(36);not null;index" json:"assigned_to_user_id"`
+	ID            string `gorm:"type:char(36);primaryKey"       json:"id"`
+	ApplicationID string `gorm:"type:char(36);not null;index"   json:"application_id"`
 
-	Notes          string `gorm:"type:text" json:"notes,omitempty"`
-	Recommendation string `gorm:"type:text" json:"recommendation,omitempty"`
-	IsApproved     *bool  `gorm:"type:boolean" json:"is_approved,omitempty"`
+	// Member info (copied at creation time so emails/display don't need a JOIN)
+	MemberUserID string `gorm:"type:char(36);not null;index"   json:"member_user_id"`
+	MemberName   string `gorm:"type:varchar(255);not null"     json:"member_name"`
+	MemberEmail  string `gorm:"type:varchar(255);not null"     json:"member_email"`
 
-	CompletedAt *time.Time `gorm:"type:timestamp null;index" json:"completed_at,omitempty"`
-	CreatedAt   time.Time  `gorm:"not null;autoCreateTime" json:"created_at"`
-	UpdatedAt   time.Time  `gorm:"not null;autoUpdateTime" json:"updated_at"`
+	// Token security — store SHA-256 hash only, never the raw token
+	TokenHash      string     `gorm:"type:varchar(64);not null;uniqueIndex" json:"-"`
+	TokenExpiresAt time.Time  `gorm:"not null;index"                        json:"token_expires_at"`
+	TokenUsedAt    *time.Time `gorm:"type:timestamp null"                   json:"token_used_at,omitempty"`
+
+	// Response (populated when member submits the form)
+	ResponseType *ConsultationResponseType `gorm:"type:enum('positive','negative');index" json:"response_type,omitempty"`
+	Reason       string                    `gorm:"type:text"                              json:"reason,omitempty"`
+
+	CreatedAt time.Time `gorm:"not null;autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time `gorm:"not null;autoUpdateTime" json:"updated_at"`
 }
 
-// TableName specifies the table name for GORM
-func (Consultation) TableName() string {
-	return "consultations"
-}
+// TableName specifies the table name for GORM.
+func (Consultation) TableName() string { return "consultations" }
 
-// BeforeCreate GORM hook to generate UUID before creating a consultation
+// BeforeCreate GORM hook — assigns a UUID primary key if not set.
 func (c *Consultation) BeforeCreate(tx *gorm.DB) error {
 	if c.ID == "" {
 		c.ID = uuid.New().String()
@@ -35,17 +50,11 @@ func (c *Consultation) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// IsCompleted checks if the consultation has been completed
-func (c *Consultation) IsCompleted() bool {
-	return c.CompletedAt != nil
-}
+// IsTokenExpired returns true if the token's 48-hour window has passed.
+func (c *Consultation) IsTokenExpired() bool { return time.Now().After(c.TokenExpiresAt) }
 
-// IsApprovedConsultation checks if the consultation resulted in approval
-func (c *Consultation) IsApprovedConsultation() bool {
-	return c.IsApproved != nil && *c.IsApproved
-}
+// IsTokenUsed returns true if the token has already been consumed.
+func (c *Consultation) IsTokenUsed() bool { return c.TokenUsedAt != nil }
 
-// IsRejectedConsultation checks if the consultation resulted in rejection
-func (c *Consultation) IsRejectedConsultation() bool {
-	return c.IsApproved != nil && !*c.IsApproved
-}
+// HasResponse returns true if the member has already submitted a response.
+func (c *Consultation) HasResponse() bool { return c.ResponseType != nil }
