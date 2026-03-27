@@ -14,8 +14,8 @@ type CreateApplicationRequest struct {
 	ApplicantName    string           `json:"applicant_name"  validate:"required,min=2,max=255"`
 	ApplicantEmail   string           `json:"applicant_email" validate:"required,email"`
 	ApplicantPhone   string           `json:"applicant_phone"`
-	LinkedInURL      string           `json:"linkedin_url"`
-	PhotoURL         string           `json:"photo_url"`
+	LinkedInURL      string           `json:"linkedin_url"    validate:"omitempty,linkedin_url"`
+	PhotoURL         string           `json:"photo_url"       validate:"omitempty,photo_url"`
 	MembershipType   MembershipType   `json:"membership_type" validate:"required,oneof=asil akademik profesyonel öğrenci onursal"`
 	ProposalReason   string           `json:"proposal_reason"`
 	ProposedByUserID string           `json:"proposed_by_user_id"`

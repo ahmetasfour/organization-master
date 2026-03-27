@@ -31,7 +31,7 @@ func NewHandler(service *Service, refCreator ReferenceCreator) *Handler {
 	return &Handler{
 		service:    service,
 		refCreator: refCreator,
-		validate:   validator.New(),
+		validate:   shared.NewValidator(),
 	}
 }
 

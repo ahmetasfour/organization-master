@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -29,6 +30,17 @@ type Config struct {
 	MailFromName string `mapstructure:"MAIL_FROM_NAME"`
 }
 
+// IsProduction returns true if running in production environment.
+func (c *Config) IsProduction() bool {
+	return c.AppEnv == "production"
+}
+
+// IsDevelopment returns true if running in development environment.
+func (c *Config) IsDevelopment() bool {
+	return c.AppEnv == "development" || c.AppEnv == ""
+}
+
+// Load reads configuration from environment and validates required fields.
 func Load() (*Config, error) {
 	v := viper.New()
 
@@ -59,5 +71,47 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
+	// Validate required environment variables
+	if err := validateConfig(&cfg); err != nil {
+		return nil, err
+	}
+
+	// Log startup environment
+	log.Printf("[CONFIG] Environment: %s", cfg.AppEnv)
+	if cfg.IsProduction() {
+		log.Println("[CONFIG] Running in PRODUCTION mode")
+	} else {
+		log.Println("[CONFIG] Running in DEVELOPMENT mode")
+	}
+
 	return &cfg, nil
+}
+
+// validateConfig checks that all required configuration is present.
+func validateConfig(cfg *Config) error {
+	var missing []string
+
+	// JWT secrets are always required
+	if cfg.JWTSecret == "" {
+		missing = append(missing, "JWT_SECRET")
+	}
+	if cfg.JWTRefreshSecret == "" {
+		missing = append(missing, "JWT_REFRESH_SECRET")
+	}
+
+	// In production, enforce stricter validation
+	if cfg.IsProduction() {
+		if cfg.DBPass == "secret" || cfg.DBPass == "" {
+			missing = append(missing, "DB_PASS (must be set in production)")
+		}
+		if !strings.HasPrefix(cfg.AppBaseURL, "https://") {
+			log.Println("[WARN] APP_BASE_URL should use HTTPS in production")
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
+	}
+
+	return nil
 }

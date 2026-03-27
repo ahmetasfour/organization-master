@@ -396,10 +396,23 @@ function LogsContent() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+import { RoleGate } from '@/components/ui/AuthGuard';
+import { AccessDenied } from '@/components/ui/AccessDenied';
+
 export default function LogsPage() {
   return (
-    <Suspense fallback={<div className="p-6"><TableSkeleton rows={10} /></div>}>
-      <LogsContent />
-    </Suspense>
+    <RoleGate
+      allowedRoles={['yk', 'admin', 'koordinator']}
+      fallback={
+        <AccessDenied
+          title="Erişim Reddedildi"
+          description="Sistem loglarını görüntüleme yetkiniz bulunmamaktadır."
+        />
+      }
+    >
+      <Suspense fallback={<div className="p-6"><TableSkeleton rows={10} /></div>}>
+        <LogsContent />
+      </Suspense>
+    </RoleGate>
   );
 }

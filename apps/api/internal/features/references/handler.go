@@ -20,7 +20,7 @@ type Handler struct {
 func NewHandler(service *Service) *Handler {
 	return &Handler{
 		service:  service,
-		validate: validator.New(),
+		validate: shared.NewValidator(),
 	}
 }
 

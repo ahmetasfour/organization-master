@@ -117,7 +117,7 @@ func main() {
 	app.Use(recover.New())
 
 	// Setup routes
-	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler, refHandler, consultHandler, reputationHandler, votingHandler, honoraryHandler, webpublishHandler)
+	router.SetupRoutes(app, cfg, authHandler, authService, logRepo, appHandler, refHandler, consultHandler, reputationHandler, votingHandler, honoraryHandler, webpublishHandler)
 
 	// Start reminder cron (context cancelled on shutdown)
 	cronCtx, cancelCron := context.WithCancel(context.Background())

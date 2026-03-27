@@ -1,6 +1,7 @@
 package router
 
 import (
+	"membership-system/api/config"
 	"membership-system/api/internal/features/applications"
 	"membership-system/api/internal/features/auth"
 	"membership-system/api/internal/features/consultations"
@@ -18,6 +19,7 @@ import (
 // SetupRoutes configures all application routes
 func SetupRoutes(
 	app *fiber.App,
+	cfg *config.Config,
 	authHandler *auth.Handler,
 	authService *auth.Service,
 	logRepo *logs.Repository,
@@ -30,7 +32,8 @@ func SetupRoutes(
 	webpublishHandler *webpublish.Handler,
 ) {
 	// Apply global middleware
-	app.Use(middleware.CORSMiddleware())
+	app.Use(middleware.SecurityHeadersMiddleware())
+	app.Use(middleware.DynamicCORSMiddleware(cfg))
 	app.Use(middleware.AuditMiddleware(logRepo))
 
 	// API v1 group
@@ -43,16 +46,16 @@ func SetupRoutes(
 		})
 	})
 
-	// Auth routes (no auth middleware)
+	// Auth routes (no auth middleware, but rate limited)
 	authGroup := api.Group("/auth")
-	authGroup.Post("/login", authHandler.Login)
+	authGroup.Post("/login", middleware.LoginRateLimiter(), authHandler.Login)
 	authGroup.Post("/refresh", authHandler.Refresh)
 	authGroup.Post("/logout", middleware.AuthMiddleware(authService), authHandler.Logout)
 
-	// ─── Public token-response routes (no auth required) ───────────────────────
+	// ─── Public token-response routes (rate limited) ───────────────────────────
 	refGroup := api.Group("/ref/respond")
-	refGroup.Get("/:token", refHandler.GetFormData)
-	refGroup.Post("/:token", refHandler.SubmitResponse)
+	refGroup.Get("/:token", middleware.PublicTokenRateLimiter(), refHandler.GetFormData)
+	refGroup.Post("/:token", middleware.PublicTokenRateLimiter(), refHandler.SubmitResponse)
 
 	// Public application submission
 	api.Post("/applications", appHandler.Submit)
@@ -75,10 +78,10 @@ func SetupRoutes(
 		refHandler.ResendToken,
 	)
 
-	// ─── Public consultation token-response routes (no auth required) ──────────
+	// ─── Public consultation token-response routes (rate limited) ──────────────
 	consultGroup := api.Group("/consult/respond")
-	consultGroup.Get("/:token", consultHandler.GetFormData)
-	consultGroup.Post("/:token", consultHandler.SubmitResponse)
+	consultGroup.Get("/:token", middleware.PublicTokenRateLimiter(), consultHandler.GetFormData)
+	consultGroup.Post("/:token", middleware.PublicTokenRateLimiter(), consultHandler.SubmitResponse)
 
 	// Consultation management — protected
 	protected.Post("/applications/:id/consultations",
@@ -90,10 +93,10 @@ func SetupRoutes(
 		consultHandler.ListForApplication,
 	)
 
-	// ─── Public reputation token-response routes (no auth required) ────────────
+	// ─── Public reputation token-response routes (rate limited) ────────────────
 	repGroup := api.Group("/reputation/respond")
-	repGroup.Get("/:token", reputationHandler.GetFormData)
-	repGroup.Post("/:token", reputationHandler.SubmitResponse)
+	repGroup.Get("/:token", middleware.PublicTokenRateLimiter(), reputationHandler.GetFormData)
+	repGroup.Post("/:token", middleware.PublicTokenRateLimiter(), reputationHandler.SubmitResponse)
 
 	// Reputation management — protected
 	protected.Post("/applications/:id/reputation/contacts",
