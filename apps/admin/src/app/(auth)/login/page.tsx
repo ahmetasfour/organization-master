@@ -10,8 +10,8 @@ import { useAuthStore } from '@/lib/store/auth.store';
 import { loginApi } from '@/lib/api/auth';
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  email: z.string().email('Geçersiz e-posta adresi'),
+  password: z.string().min(8, 'Şifre en az 8 karakter olmalıdır'),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -66,7 +66,7 @@ export default function LoginPage() {
           <div className="rounded-md shadow-sm space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email address
+                E-posta Adresi
               </label>
               <input
                 {...register('email')}
@@ -74,7 +74,7 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-slate-500 focus:border-slate-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
+                placeholder="E-posta adresi"
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -83,7 +83,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                Şifre
               </label>
               <input
                 {...register('password')}
@@ -91,7 +91,7 @@ export default function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-slate-500 focus:border-slate-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
+                placeholder="Şifre"
               />
               {errors.password && (
                 <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
@@ -115,7 +115,7 @@ export default function LoginPage() {
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
             </Button>
           </div>
         </form>
@@ -126,7 +126,7 @@ export default function LoginPage() {
               <div className="w-full border-t border-gray-300" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-50 text-gray-500">Test Accounts</span>
+              <span className="px-2 bg-gray-50 text-gray-500">Test Hesapları</span>
             </div>
           </div>
           <div className="mt-4 space-y-1 text-xs text-gray-600">
