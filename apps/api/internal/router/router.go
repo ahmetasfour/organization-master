@@ -30,6 +30,7 @@ func SetupRoutes(
 	votingHandler *voting.Handler,
 	honoraryHandler *honorary.Handler,
 	webpublishHandler *webpublish.Handler,
+	logsHandler *logs.Handler,
 ) {
 	// Apply global middleware
 	app.Use(middleware.SecurityHeadersMiddleware())
@@ -149,5 +150,17 @@ func SetupRoutes(
 	protected.Get("/applications/:id/publish-consent",
 		middleware.AdminOnly(),
 		webpublishHandler.GetConsentStatus,
+	)
+
+	// ─── Logs routes ─────────────────────────────────────────────────────────────
+	// GET logs list (yk, koordinator, admin only)
+	protected.Get("/logs",
+		middleware.YKOrKoordinator(),
+		logsHandler.List,
+	)
+	// GET single log by ID (yk, koordinator, admin only)
+	protected.Get("/logs/:id",
+		middleware.YKOrKoordinator(),
+		logsHandler.GetByID,
 	)
 }

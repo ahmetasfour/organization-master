@@ -68,7 +68,7 @@ func NewService(
 // tokenized emails, and advances the application status → danışma_sürecinde.
 func (s *Service) AddConsultees(ctx context.Context, appID string, req *AddConsultationsRequest, koordinatorID string) error {
 	if len(req.Consultees) < 2 {
-		return fmt.Errorf("consultations: minimum 2 consultees required")
+		return fmt.Errorf("consultations: en az 2 danışılan gereklidir")
 	}
 
 	// Load application
@@ -77,17 +77,17 @@ func (s *Service) AddConsultees(ctx context.Context, appID string, req *AddConsu
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return shared.ErrNotFound
 		}
-		return fmt.Errorf("consultations: load application: %w", err)
+		return fmt.Errorf("consultations: başvuru yüklenemedi: %w", err)
 	}
 
 	// Validate membership type
 	if !consultTypes[app.MembershipType] {
-		return fmt.Errorf("consultations: consultation flow only applies to profesyonel/öğrenci applications")
+		return fmt.Errorf("consultations: danışma süreci sadece profesyonel/öğrenci başvuruları için geçerlidir")
 	}
 
 	// Validate status
 	if app.Status != "başvuru_alındı" {
-		return fmt.Errorf("consultations: application must be in başvuru_alındı status, got: %s", app.Status)
+		return fmt.Errorf("consultations: başvuru başvuru_alındı durumunda olmalıdır, mevcut: %s", app.Status)
 	}
 
 	// RedGuard: must not be terminated
@@ -109,12 +109,12 @@ func (s *Service) AddConsultees(ctx context.Context, appID string, req *AddConsu
 		user, err := s.authRepo.FindByID(ctx, input.UserID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return fmt.Errorf("consultations: user %s not found", input.UserID)
+				return fmt.Errorf("consultations: kullanıcı %s bulunamadı", input.UserID)
 			}
-			return fmt.Errorf("consultations: lookup user: %w", err)
+			return fmt.Errorf("consultations: kullanıcı sorgulaması: %w", err)
 		}
 		if !user.IsActive {
-			return fmt.Errorf("consultations: user %s is inactive", input.UserID)
+			return fmt.Errorf("consultations: kullanıcı %s aktif değil", input.UserID)
 		}
 
 		tok := shared.GenerateToken()
@@ -133,7 +133,7 @@ func (s *Service) AddConsultees(ctx context.Context, appID string, req *AddConsu
 
 	// Persist all records
 	if err := s.repo.CreateBatch(ctx, consultations); err != nil {
-		return fmt.Errorf("consultations: create batch: %w", err)
+		return fmt.Errorf("consultations: toplu ekleme: %w", err)
 	}
 
 	// Send emails (non-fatal per member — log failures and continue)
@@ -164,7 +164,7 @@ func (s *Service) AddConsultees(ctx context.Context, appID string, req *AddConsu
 	if err := s.db.WithContext(ctx).
 		Exec("UPDATE applications SET status = ?, updated_at = ? WHERE id = ?",
 			"danışma_sürecinde", time.Now(), appID).Error; err != nil {
-		return fmt.Errorf("consultations: advance status: %w", err)
+		return fmt.Errorf("consultations: durum güncelleme: %w", err)
 	}
 
 	_ = s.writeLog(ctx, "status.change", appID, "application", map[string]interface{}{
@@ -188,7 +188,7 @@ func (s *Service) GetFormData(ctx context.Context, rawToken string) (*Consultati
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, shared.ErrNotFound
 		}
-		return nil, fmt.Errorf("consultations: find by token: %w", err)
+		return nil, fmt.Errorf("consultations: token sorgu: %w", err)
 	}
 
 	if c.IsTokenExpired() {
@@ -201,7 +201,7 @@ func (s *Service) GetFormData(ctx context.Context, rawToken string) (*Consultati
 	// Load application for display context
 	var app appRow
 	if err := s.db.WithContext(ctx).First(&app, "id = ?", c.ApplicationID).Error; err != nil {
-		return nil, fmt.Errorf("consultations: load application: %w", err)
+		return nil, fmt.Errorf("consultations: başvuru yüklenemedi: %w", err)
 	}
 
 	return &ConsultationFormData{
@@ -220,7 +220,7 @@ func (s *Service) GetFormData(ctx context.Context, rawToken string) (*Consultati
 //   - positive → if all consultations positive → advance to gündemde
 func (s *Service) SubmitResponse(ctx context.Context, rawToken string, req *ConsultationResponseRequest, ipAddress string) error {
 	if req.ResponseType == string(ConsultResponseNegative) && len(req.Reason) < 30 {
-		return fmt.Errorf("reason: minimum 30 characters required for negative response")
+		return fmt.Errorf("reason: olumsuz yanıt için en az 30 karakter gereklidir")
 	}
 
 	hash := shared.HashToken(rawToken)
@@ -235,7 +235,7 @@ func (s *Service) SubmitResponse(ctx context.Context, rawToken string, req *Cons
 		// 2. Reload consultation within transaction
 		var c Consultation
 		if err := tx.Where("token_hash = ?", hash).First(&c).Error; err != nil {
-			return fmt.Errorf("consultations: reload: %w", err)
+			return fmt.Errorf("consultations: yeniden yükleme: %w", err)
 		}
 
 		// 3. Save response
@@ -247,7 +247,7 @@ func (s *Service) SubmitResponse(ctx context.Context, rawToken string, req *Cons
 				"reason":        req.Reason,
 				"updated_at":    now,
 			}).Error; err != nil {
-			return fmt.Errorf("consultations: save response: %w", err)
+			return fmt.Errorf("consultations: yanıt kaydı: %w", err)
 		}
 
 		// 4. Audit log
@@ -265,7 +265,7 @@ func (s *Service) SubmitResponse(ctx context.Context, rawToken string, req *Cons
 				if errors.Is(err, shared.ErrApplicationTerminated) {
 					return nil // idempotent
 				}
-				return fmt.Errorf("consultations: terminate: %w", err)
+				return fmt.Errorf("consultations: sonlandırma: %w", err)
 			}
 
 			// Send rejection email (reason NOT included per spec)
@@ -303,7 +303,7 @@ func (s *Service) SubmitResponse(ctx context.Context, rawToken string, req *Cons
 						"UPDATE applications SET status = ?, updated_at = ? WHERE id = ?",
 						"gündemde", now, c.ApplicationID,
 					).Error; err != nil {
-						return fmt.Errorf("consultations: advance to gündemde: %w", err)
+						return fmt.Errorf("consultations: gündeme geçiş: %w", err)
 					}
 
 					_ = writeLogTx(ctx, tx, "status.change", c.ApplicationID, "application", map[string]interface{}{
@@ -325,7 +325,7 @@ func (s *Service) SubmitResponse(ctx context.Context, rawToken string, req *Cons
 func (s *Service) ListForApplication(ctx context.Context, appID string) ([]*ConsultationSummary, error) {
 	consultations, err := s.repo.FindByApplicationID(ctx, appID)
 	if err != nil {
-		return nil, fmt.Errorf("consultations: list: %w", err)
+		return nil, fmt.Errorf("consultations: listeleme: %w", err)
 	}
 
 	summaries := make([]*ConsultationSummary, 0, len(consultations))

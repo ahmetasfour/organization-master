@@ -39,7 +39,7 @@ func NewHandler(service *Service, refCreator ReferenceCreator) *Handler {
 func (h *Handler) Submit(c *fiber.Ctx) error {
 	var req CreateApplicationRequest
 	if err := c.BodyParser(&req); err != nil {
-		return shared.Error(c, fiber.StatusBadRequest, "INVALID_BODY", "Invalid request body")
+		return shared.Error(c, fiber.StatusBadRequest, "INVALID_BODY", "Geçersiz istek formatı")
 	}
 
 	if err := h.validate.Struct(&req); err != nil {
@@ -96,7 +96,7 @@ func (h *Handler) Submit(c *fiber.Ctx) error {
 func (h *Handler) GetByID(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return shared.Error(c, fiber.StatusBadRequest, "INVALID_ID", "Application ID is required")
+		return shared.Error(c, fiber.StatusBadRequest, "INVALID_ID", "Başvuru ID'si gereklidir")
 	}
 
 	requestorRole, _ := c.Locals("userRole").(string)
@@ -134,7 +134,7 @@ func (h *Handler) ListAll(c *fiber.Ctx) error {
 func (h *Handler) GetTimeline(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return shared.Error(c, fiber.StatusBadRequest, "INVALID_ID", "Application ID is required")
+		return shared.Error(c, fiber.StatusBadRequest, "INVALID_ID", "Başvuru ID'si gereklidir")
 	}
 
 	timeline, err := h.service.GetTimeline(c.Context(), id)
@@ -149,7 +149,7 @@ func (h *Handler) GetTimeline(c *fiber.Ctx) error {
 func (h *Handler) GetRedHistory(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return shared.Error(c, fiber.StatusBadRequest, "INVALID_ID", "Application ID is required")
+		return shared.Error(c, fiber.StatusBadRequest, "INVALID_ID", "Başvuru ID'si gereklidir")
 	}
 
 	history, err := h.service.GetRedHistory(c.Context(), id)
@@ -164,7 +164,7 @@ func (h *Handler) GetRedHistory(c *fiber.Ctx) error {
 func mapError(c *fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, shared.ErrNotFound) || errors.Is(err, gorm.ErrRecordNotFound):
-		return shared.Error(c, fiber.StatusNotFound, "NOT_FOUND", "Application not found")
+		return shared.Error(c, fiber.StatusNotFound, "NOT_FOUND", "Başvuru bulunamadı")
 	case errors.Is(err, shared.ErrApplicationTerminated):
 		return shared.Error(c, fiber.StatusConflict, "APPLICATION_TERMINATED", err.Error())
 	case errors.Is(err, shared.ErrInvalidTransition):

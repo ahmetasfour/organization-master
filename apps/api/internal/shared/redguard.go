@@ -70,7 +70,7 @@ func (rg *RedGuard) Terminate(ctx context.Context, applicationID, reason, actorI
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrNotFound
 			}
-			return fmt.Errorf("redguard: load application: %w", err)
+			return fmt.Errorf("redguard: başvuru yüklenemedi: %w", err)
 		}
 
 		// 2. Check not already terminated
@@ -91,7 +91,7 @@ func (rg *RedGuard) Terminate(ctx context.Context, applicationID, reason, actorI
 		if err := tx.Table("applications").
 			Where("id = ?", applicationID).
 			Updates(updates).Error; err != nil {
-			return fmt.Errorf("redguard: update application: %w", err)
+			return fmt.Errorf("redguard: başvuru güncellenemedi: %w", err)
 		}
 
 		// 4. Write audit log
@@ -118,7 +118,7 @@ func (rg *RedGuard) Terminate(ctx context.Context, applicationID, reason, actorI
 			CreatedAt:  time.Now(),
 		}
 		if err := tx.Create(&entry).Error; err != nil {
-			return fmt.Errorf("redguard: write log: %w", err)
+			return fmt.Errorf("redguard: log yazılamadı: %w", err)
 		}
 
 		return nil
@@ -146,7 +146,7 @@ func (rg *RedGuard) IsTerminated(ctx context.Context, applicationID string) (boo
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, ErrNotFound
 		}
-		return false, fmt.Errorf("redguard: check terminated: %w", err)
+		return false, fmt.Errorf("redguard: sonlandırma kontrolü başarısız: %w", err)
 	}
 	return terminalStatusSet[app.Status], nil
 }

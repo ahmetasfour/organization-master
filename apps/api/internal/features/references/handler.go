@@ -29,7 +29,7 @@ func NewHandler(service *Service) *Handler {
 func (h *Handler) GetFormData(c *fiber.Ctx) error {
 	rawToken := c.Params("token")
 	if rawToken == "" {
-		return shared.Error(c, fiber.StatusBadRequest, "MISSING_TOKEN", "Token is required")
+		return shared.Error(c, fiber.StatusBadRequest, "MISSING_TOKEN", "Token gereklidir")
 	}
 
 	data, err := h.service.GetFormData(c.Context(), rawToken)
@@ -45,12 +45,12 @@ func (h *Handler) GetFormData(c *fiber.Ctx) error {
 func (h *Handler) SubmitResponse(c *fiber.Ctx) error {
 	rawToken := c.Params("token")
 	if rawToken == "" {
-		return shared.Error(c, fiber.StatusBadRequest, "MISSING_TOKEN", "Token is required")
+		return shared.Error(c, fiber.StatusBadRequest, "MISSING_TOKEN", "Token gereklidir")
 	}
 
 	var req ReferenceResponseRequest
 	if err := c.BodyParser(&req); err != nil {
-		return shared.Error(c, fiber.StatusBadRequest, "INVALID_BODY", "Invalid request body")
+		return shared.Error(c, fiber.StatusBadRequest, "INVALID_BODY", "Geçersiz istek formatı")
 	}
 
 	if err := h.validate.Struct(&req); err != nil {
@@ -78,14 +78,14 @@ func (h *Handler) SubmitResponse(c *fiber.Ctx) error {
 func (h *Handler) ResendToken(c *fiber.Ctx) error {
 	refID := c.Params("refId")
 	if refID == "" {
-		return shared.Error(c, fiber.StatusBadRequest, "MISSING_REF_ID", "Reference ID is required")
+		return shared.Error(c, fiber.StatusBadRequest, "MISSING_REF_ID", "Referans ID'si gereklidir")
 	}
 
 	// Load the reference to get referee info
 	ref, err := h.service.repo.FindByID(c.Context(), refID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return shared.Error(c, fiber.StatusNotFound, "NOT_FOUND", "Reference not found")
+			return shared.Error(c, fiber.StatusNotFound, "NOT_FOUND", "Referans bulunamadı")
 		}
 		return shared.Error(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 	}
@@ -101,7 +101,7 @@ func (h *Handler) ResendToken(c *fiber.Ctx) error {
 		Select("applicant_name", "membership_type").
 		Where("id = ?", ref.ApplicationID).
 		First(&app).Error; err != nil {
-		return shared.Error(c, fiber.StatusNotFound, "NOT_FOUND", "Application not found")
+		return shared.Error(c, fiber.StatusNotFound, "NOT_FOUND", "Başvuru bulunamadı")
 	}
 
 	if err := h.service.ResendToken(

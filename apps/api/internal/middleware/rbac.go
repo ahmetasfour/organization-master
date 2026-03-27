@@ -11,7 +11,7 @@ func RequireRole(roles ...string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		userRole := c.Locals("userRole")
 		if userRole == nil {
-			return shared.Error(c, fiber.StatusUnauthorized, "UNAUTHORIZED", "Authentication required")
+			return shared.Error(c, fiber.StatusUnauthorized, "UNAUTHORIZED", "Kimlik doğrulama gereklidir")
 		}
 
 		role := userRole.(string)
@@ -21,7 +21,7 @@ func RequireRole(roles ...string) fiber.Handler {
 			}
 		}
 
-		return shared.Error(c, fiber.StatusForbidden, "FORBIDDEN", "You do not have permission to perform this action")
+		return shared.Error(c, fiber.StatusForbidden, "FORBIDDEN", "Bu işlemi gerçekleştirmek için yetkiniz yok")
 	}
 }
 

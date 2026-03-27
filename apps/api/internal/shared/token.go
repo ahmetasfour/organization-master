@@ -81,7 +81,7 @@ func ValidateAndConsumeToken(
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrNotFound
 		}
-		return fmt.Errorf("token: lookup: %w", err)
+		return fmt.Errorf("token: arama başarısız: %w", err)
 	}
 
 	if now.After(row.TokenExpiresAt) {
@@ -95,7 +95,7 @@ func ValidateAndConsumeToken(
 	if err := tx.Table(table).
 		Where("id = ?", row.ID).
 		Update("token_used_at", now).Error; err != nil {
-		return fmt.Errorf("token: consume: %w", err)
+		return fmt.Errorf("token: kullanım işareti eklenemedi: %w", err)
 	}
 
 	return nil

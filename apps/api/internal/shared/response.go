@@ -42,7 +42,7 @@ func ValidationError(c *fiber.Ctx, fields map[string]string) error {
 		Success: false,
 		Error: &APIError{
 			Code:    "VALIDATION_ERROR",
-			Message: "Validation failed",
+			Message: "Doğrulama başarısız",
 			Fields:  fields,
 		},
 	})
@@ -78,7 +78,7 @@ func TokenExpired(c *fiber.Ctx) error {
 		Success: false,
 		Error: &APIError{
 			Code:    "TOKEN_EXPIRED",
-			Message: "This link has expired",
+			Message: "Bu bağlantının süresi dolmuştur",
 		},
 	})
 }
@@ -89,7 +89,7 @@ func TokenUsed(c *fiber.Ctx) error {
 		Success: false,
 		Error: &APIError{
 			Code:    "TOKEN_USED",
-			Message: "This link has already been used",
+			Message: "Bu bağlantı daha önce kullanılmıştır",
 		},
 	})
 }

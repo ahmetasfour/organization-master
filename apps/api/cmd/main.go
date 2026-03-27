@@ -103,6 +103,8 @@ func main() {
 	honoraryHandler := honorary.NewHandler(honoraryService)
 
 	logService := logs.NewService(logRepo)
+	logsHandler := logs.NewHandler(logService, logRepo)
+
 	webpublishRepo := webpublish.NewRepository(db)
 	webpublishService := webpublish.NewService(webpublishRepo, logService, db)
 	webpublishHandler := webpublish.NewHandler(webpublishService)
@@ -117,7 +119,7 @@ func main() {
 	app.Use(recover.New())
 
 	// Setup routes
-	router.SetupRoutes(app, cfg, authHandler, authService, logRepo, appHandler, refHandler, consultHandler, reputationHandler, votingHandler, honoraryHandler, webpublishHandler)
+	router.SetupRoutes(app, cfg, authHandler, authService, logRepo, appHandler, refHandler, consultHandler, reputationHandler, votingHandler, honoraryHandler, webpublishHandler, logsHandler)
 
 	// Start reminder cron (context cancelled on shutdown)
 	cronCtx, cancelCron := context.WithCancel(context.Background())

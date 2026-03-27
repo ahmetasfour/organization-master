@@ -33,7 +33,7 @@ func (h *Handler) AddConsultees(c *fiber.Ctx) error {
 
 	var req AddConsultationsRequest
 	if err := c.BodyParser(&req); err != nil {
-		return shared.Error(c, fiber.StatusBadRequest, "INVALID_BODY", "Invalid request body")
+		return shared.Error(c, fiber.StatusBadRequest, "INVALID_BODY", "Geçersiz istek formatı")
 	}
 
 	if err := h.validate.Struct(&req); err != nil {
@@ -79,12 +79,12 @@ func (h *Handler) GetFormData(c *fiber.Ctx) error {
 func (h *Handler) SubmitResponse(c *fiber.Ctx) error {
 	rawToken := c.Params("token")
 	if rawToken == "" {
-		return shared.Error(c, fiber.StatusBadRequest, "MISSING_TOKEN", "Token is required")
+		return shared.Error(c, fiber.StatusBadRequest, "MISSING_TOKEN", "Token gereklidir")
 	}
 
 	var req ConsultationResponseRequest
 	if err := c.BodyParser(&req); err != nil {
-		return shared.Error(c, fiber.StatusBadRequest, "INVALID_BODY", "Invalid request body")
+		return shared.Error(c, fiber.StatusBadRequest, "INVALID_BODY", "Geçersiz istek formatı")
 	}
 
 	if err := h.validate.Struct(&req); err != nil {
@@ -114,7 +114,7 @@ func (h *Handler) SubmitResponse(c *fiber.Ctx) error {
 func (h *Handler) ListForApplication(c *fiber.Ctx) error {
 	appID := c.Params("id")
 	if appID == "" {
-		return shared.Error(c, fiber.StatusBadRequest, "MISSING_ID", "Application ID is required")
+		return shared.Error(c, fiber.StatusBadRequest, "MISSING_ID", "Başvuru ID'si gereklidir")
 	}
 
 	summaries, err := h.service.ListForApplication(c.Context(), appID)
@@ -130,13 +130,13 @@ func (h *Handler) ListForApplication(c *fiber.Ctx) error {
 func mapConsultError(c *fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, shared.ErrNotFound):
-		return shared.Error(c, fiber.StatusNotFound, "NOT_FOUND", "Resource not found")
+		return shared.Error(c, fiber.StatusNotFound, "NOT_FOUND", "Kayıt bulunamadı")
 	case errors.Is(err, shared.ErrTokenExpired):
-		return shared.Error(c, fiber.StatusGone, "TOKEN_EXPIRED", "This link has expired.")
+		return shared.Error(c, fiber.StatusGone, "TOKEN_EXPIRED", "Bu bağlantının süresi dolmuştur")
 	case errors.Is(err, shared.ErrTokenUsed):
-		return shared.Error(c, fiber.StatusConflict, "TOKEN_USED", "This link has already been used.")
+		return shared.Error(c, fiber.StatusConflict, "TOKEN_USED", "Bu bağlantı daha önce kullanılmıştır")
 	case errors.Is(err, shared.ErrApplicationTerminated):
-		return shared.Error(c, fiber.StatusConflict, "APPLICATION_TERMINATED", "This application has already been terminated.")
+		return shared.Error(c, fiber.StatusConflict, "APPLICATION_TERMINATED", "Bu başvuru sonlandırılmıştır")
 	default:
 		return shared.Error(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
 	}

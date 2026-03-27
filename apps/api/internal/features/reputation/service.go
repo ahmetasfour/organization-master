@@ -77,7 +77,7 @@ func (s *Service) AddContacts(
 ) error {
 	// Validate exactly 10 contacts (enforced at both validator and service layers)
 	if len(req.Contacts) != 10 {
-		return fmt.Errorf("contacts: exactly 10 contacts required, got %d", len(req.Contacts))
+		return fmt.Errorf("itibar: tam olarak 10 kişi gereklidir, %d kişi verildi", len(req.Contacts))
 	}
 
 	// Load application
@@ -86,17 +86,17 @@ func (s *Service) AddContacts(
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return shared.ErrNotFound
 		}
-		return fmt.Errorf("reputation: load application: %w", err)
+		return fmt.Errorf("itibar: başvuru yüklenemedi: %w", err)
 	}
 
 	// Validate membership type
 	if !reputationTypes[app.MembershipType] {
-		return fmt.Errorf("reputation: reputation screening only applies to asil/akademik applications, got: %s", app.MembershipType)
+		return fmt.Errorf("itibar: itibar taraması sadece asil/akademik başvurular için geçerlidir, mevcut: %s", app.MembershipType)
 	}
 
 	// Validate application status must be ön_onaylandı
 	if app.Status != "ön_onaylandı" {
-		return fmt.Errorf("reputation: application must be in ön_onaylandı status to add contacts, got: %s", app.Status)
+		return fmt.Errorf("itibar: itibar kişileri eklemek için başvuru ön_onaylandı durumunda olmalıdır, mevcut: %s", app.Status)
 	}
 
 	// RedGuard: must not be terminated
@@ -128,7 +128,7 @@ func (s *Service) AddContacts(
 
 	// Persist all contacts
 	if err := s.repo.CreateBatch(ctx, contacts); err != nil {
-		return fmt.Errorf("reputation: create batch: %w", err)
+		return fmt.Errorf("itibar: kişiler kaydedilemedi: %w", err)
 	}
 
 	// Send emails (non-fatal per contact)
@@ -159,7 +159,7 @@ func (s *Service) AddContacts(
 	if err := s.db.WithContext(ctx).
 		Exec("UPDATE applications SET status = ?, updated_at = ? WHERE id = ?",
 			"itibar_taramasında", time.Now(), appID).Error; err != nil {
-		return fmt.Errorf("reputation: advance status: %w", err)
+		return fmt.Errorf("itibar: durum güncellenemedi: %w", err)
 	}
 
 	_ = s.writeLog(ctx, "status.change", appID, "application", map[string]interface{}{
@@ -184,7 +184,7 @@ func (s *Service) GetFormData(ctx context.Context, rawToken string) (*Reputation
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, shared.ErrNotFound
 		}
-		return nil, fmt.Errorf("reputation: find by token: %w", err)
+		return nil, fmt.Errorf("itibar: token bulunamadı: %w", err)
 	}
 
 	if c.IsTokenExpired() {
@@ -197,7 +197,7 @@ func (s *Service) GetFormData(ctx context.Context, rawToken string) (*Reputation
 	// Load application context
 	var app repAppRow
 	if err := s.db.WithContext(ctx).First(&app, "id = ?", c.ApplicationID).Error; err != nil {
-		return nil, fmt.Errorf("reputation: load application: %w", err)
+		return nil, fmt.Errorf("itibar: başvuru yüklenemedi: %w", err)
 	}
 
 	return &ReputationFormData{
@@ -221,7 +221,7 @@ func (s *Service) SubmitResponse(
 	ipAddress string,
 ) error {
 	if req.ResponseType == string(ResponseNegative) && len(req.Reason) < 30 {
-		return fmt.Errorf("reason: minimum 30 characters required for negative response")
+		return fmt.Errorf("gerekçe: olumsuz yanıtlar için minimum 30 karakter gereklidir")
 	}
 
 	hash := shared.HashToken(rawToken)
@@ -236,7 +236,7 @@ func (s *Service) SubmitResponse(
 		// 2. Reload contact within transaction
 		var c ReputationContact
 		if err := tx.Where("token_hash = ?", hash).First(&c).Error; err != nil {
-			return fmt.Errorf("reputation: reload contact: %w", err)
+			return fmt.Errorf("itibar: kişi yüklenemedi: %w", err)
 		}
 
 		// 3. Save response
@@ -249,7 +249,7 @@ func (s *Service) SubmitResponse(
 				"responded_at":  now,
 				"responded_ip":  ipAddress,
 			}).Error; err != nil {
-			return fmt.Errorf("reputation: save response: %w", err)
+			return fmt.Errorf("itibar: yanıt kaydedilemedi: %w", err)
 		}
 
 		// 4. Audit log
@@ -326,7 +326,7 @@ func (s *Service) SubmitResponse(
 					"UPDATE applications SET status = ?, updated_at = ? WHERE id = ?",
 					"itibar_temiz", now, c.ApplicationID,
 				).Error; err != nil {
-					return fmt.Errorf("reputation: advance to itibar_temiz: %w", err)
+					return fmt.Errorf("itibar: durum güncellenemedi (itibar_temiz): %w", err)
 				}
 
 				_ = repWriteLogTx(ctx, tx, "status.change", c.ApplicationID, "application", map[string]interface{}{
@@ -348,7 +348,7 @@ func (s *Service) SubmitResponse(
 func (s *Service) GetStatus(ctx context.Context, appID string) (*ReputationStatusResponse, error) {
 	contacts, err := s.repo.FindByApplicationID(ctx, appID)
 	if err != nil {
-		return nil, fmt.Errorf("reputation: get status: %w", err)
+		return nil, fmt.Errorf("itibar: durum sorgulanamadı: %w", err)
 	}
 
 	resp := &ReputationStatusResponse{
