@@ -12,7 +12,7 @@ import {
   X,
   LogOut,
 } from 'lucide-react';
-import { useAuthStore } from '../../lib/store/auth.store';
+import { useAuthStore, useAuthHydrated } from '../../lib/store/auth.store';
 import { RoleBadge } from '../../components/ui/RoleBadge';
 import { cn } from '../../lib/utils';
 
@@ -67,20 +67,30 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { isAuthenticated, user, clearAuth } = useAuthStore();
+  const hydrated = useAuthHydrated();
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (hydrated && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [hydrated, isAuthenticated, router]);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
+
+  // Wait for auth state to rehydrate from localStorage
+  if (!hydrated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-800" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) return null;
 

@@ -1,12 +1,13 @@
 'use client';
 
-import { notFound, useParams } from 'next/navigation';
+import { notFound, useParams, useRouter } from 'next/navigation';
 import { ConsultationPanel } from '../../../../../components/consultation/ConsultationPanel';
 import { useApplication } from '../../../../../lib/hooks/useApplications';
 import { useAuthStore } from '../../../../../lib/store/auth.store';
 
 export default function ConsultationManagementPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = params?.id ?? '';
   const { user } = useAuthStore();
   const role = user?.role ?? '';
@@ -33,12 +34,12 @@ export default function ConsultationManagementPage() {
   return (
     <div className="p-6 max-w-4xl space-y-6">
       {/* Back */}
-      <a
-        href={`/applications/${id}`}
+      <button
+        onClick={() => router.back()}
         className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
       >
         ← Başvuruya Dön
-      </a>
+      </button>
 
       {/* Page header */}
       <div className="border-b border-gray-200 pb-4">

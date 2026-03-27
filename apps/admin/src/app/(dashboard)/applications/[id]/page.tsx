@@ -1,6 +1,6 @@
 'use client';
 
-import { notFound, useParams } from 'next/navigation';
+import { notFound, useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { RedHistoryBanner } from '../../../../components/applications/RedHistoryBanner';
 import { StatusBadge } from '../../../../components/applications/StatusBadge';
@@ -22,6 +22,7 @@ type Tab = 'overview' | 'timeline' | 'red-history' | 'references' | 'consultatio
 
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = params?.id ?? '';
   const { user } = useAuthStore();
   const role = user?.role ?? '';
@@ -90,9 +91,12 @@ export default function ApplicationDetailPage() {
   return (
     <div className="p-6 max-w-5xl space-y-6">
       {/* Back */}
-      <a href="/applications" className="text-sm text-blue-600 hover:underline">
+      <button 
+        onClick={() => router.back()} 
+        className="text-sm text-blue-600 hover:underline"
+      >
         ← Başvuru Listesine Dön
-      </a>
+      </button>
 
       {/* Red history warning */}
       {app.repeat_applicant && (
