@@ -8,13 +8,19 @@ import {
 } from '@tanstack/react-table';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback } from 'react';
+import { Suspense, useCallback, useMemo } from 'react';
+import { Download, FileText, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { StatusBadge } from '../../../components/applications/StatusBadge';
+import { useAuthStore } from '../../../lib/store/auth.store';
+import { TableSkeleton, StatsSkeleton } from '../../../components/ui/Skeletons';
+import { EmptyState } from '../../../components/ui/EmptyState';
+import { showToast } from '../../../components/ui/Toaster';
 import {
   ApplicationFilters,
   ApplicationSummary,
   ApplicationStatus,
   MembershipType,
+  getApplications,
 } from '../../../lib/api/applications';
 import { useApplications } from '../../../lib/hooks/useApplications';
 
@@ -123,6 +129,8 @@ const columns: ColumnDef<ApplicationSummary>[] = [
 function ApplicationsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
 
   const filters: ApplicationFilters = {
     membership_type: searchParams.get('membership_type') || undefined,
@@ -133,6 +141,64 @@ function ApplicationsContent() {
   };
 
   const { data, isLoading, isError } = useApplications(filters);
+
+  // Calculate stats from data
+  const stats = useMemo(() => {
+    if (!data) return { total: 0, pending: 0, accepted: 0, rejected: 0 };
+    
+    const applications = data.data;
+    const pendingStatuses: ApplicationStatus[] = [
+      'başvuru_alındı', 'referans_bekleniyor', 'referans_tamamlandı',
+      'yk_ön_incelemede', 'ön_onaylandı', 'itibar_taramasında',
+      'itibar_temiz', 'danışma_sürecinde', 'öneri_alındı',
+      'yik_değerlendirmede', 'gündemde'
+    ];
+    const rejectedStatuses: ApplicationStatus[] = [
+      'referans_red', 'yk_red', 'itibar_red', 'danışma_red', 'yik_red', 'reddedildi'
+    ];
+
+    return {
+      total: data.total,
+      pending: applications.filter(a => pendingStatuses.includes(a.status)).length,
+      accepted: applications.filter(a => a.status === 'kabul').length,
+      rejected: applications.filter(a => rejectedStatuses.includes(a.status)).length,
+    };
+  }, [data]);
+
+  const handleExportCSV = async () => {
+    try {
+      // Fetch all applications (no pagination)
+      const allData = await getApplications({ ...filters, page: 1, page_size: 10000 });
+      
+      // Create CSV content
+      const headers = ['Ad Soyad', 'E-posta', 'Üyelik Tipi', 'Durum', 'Başvuru Tarihi'];
+      const rows = allData.data.map(app => [
+        app.applicant_name,
+        app.applicant_email,
+        MEMBERSHIP_LABELS[app.membership_type] || app.membership_type,
+        app.status,
+        new Date(app.created_at).toLocaleDateString('tr-TR'),
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Download file
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `basvurular_${new Date().toISOString().split('T')[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      
+      showToast('CSV dosyası indirildi.', 'success');
+    } catch {
+      showToast('CSV dışa aktarılamadı.', 'error');
+    }
+  };
 
   const setParam = useCallback(
     (key: string, value: string) => {
@@ -160,7 +226,7 @@ function ApplicationsContent() {
   return (
     <div className="p-6 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Başvurular</h1>
           {data && (
@@ -169,7 +235,52 @@ function ApplicationsContent() {
             </p>
           )}
         </div>
+        {isAdmin && (
+          <button
+            onClick={handleExportCSV}
+            className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            CSV İndir
+          </button>
+        )}
       </div>
+
+      {/* Stats Row */}
+      {isLoading ? (
+        <StatsSkeleton />
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard
+            icon={<FileText className="h-5 w-5" />}
+            label="Toplam"
+            value={stats.total}
+            color="text-gray-700"
+            bg="bg-gray-50"
+          />
+          <StatCard
+            icon={<Clock className="h-5 w-5" />}
+            label="Bekleyen"
+            value={stats.pending}
+            color="text-yellow-700"
+            bg="bg-yellow-50"
+          />
+          <StatCard
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            label="Kabul"
+            value={stats.accepted}
+            color="text-green-700"
+            bg="bg-green-50"
+          />
+          <StatCard
+            icon={<XCircle className="h-5 w-5" />}
+            label="Reddedildi"
+            value={stats.rejected}
+            color="text-red-700"
+            bg="bg-red-50"
+          />
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center bg-white border border-gray-200 rounded-lg px-4 py-3">
@@ -210,7 +321,13 @@ function ApplicationsContent() {
             Veriler yüklenirken hata oluştu.
           </div>
         ) : isLoading ? (
-          <div className="p-8 text-center text-gray-400 text-sm">Yükleniyor...</div>
+          <TableSkeleton rows={10} />
+        ) : table.getRowModel().rows.length === 0 ? (
+          <EmptyState
+            icon={<FileText className="h-6 w-6" />}
+            title="Başvuru bulunamadı"
+            description="Seçili filtrelere uygun başvuru bulunmamaktadır."
+          />
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -228,23 +345,15 @@ function ApplicationsContent() {
               ))}
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {table.getRowModel().rows.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-400">
-                    Başvuru bulunamadı.
-                  </td>
+              {table.getRowModel().rows.map((row) => (
+                <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="px-4 py-3">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
                 </tr>
-              ) : (
-                table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         )}
@@ -280,9 +389,33 @@ function ApplicationsContent() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+function StatCard({
+  icon,
+  label,
+  value,
+  color,
+  bg,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
+  bg: string;
+}) {
+  return (
+    <div className={`flex items-center gap-3 rounded-lg border border-gray-200 ${bg} px-4 py-3`}>
+      <div className={color}>{icon}</div>
+      <div>
+        <p className={`text-xl font-bold ${color}`}>{value}</p>
+        <p className="text-xs text-gray-500">{label}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function ApplicationsPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-gray-400">Yükleniyor...</div>}>
+    <Suspense fallback={<div className="p-6"><TableSkeleton rows={10} /></div>}>
       <ApplicationsContent />
     </Suspense>
   );

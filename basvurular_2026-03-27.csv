@@ -1,0 +1,9 @@
+﻿Ad Soyad,E-posta,Üyelik Tipi,Durum,Başvuru Tarihi
+"Aaa Member","phase11-a-b3654bfb-21f9-4e59-9ed8-ab8ae695e53f@example.com","Asil","kabul","27.03.2026"
+"Phase11 Kabul","phase11-ok-2430b0fe-01c2-48f9-ad41-eb3c7250f483@example.com","Akademik","kabul","27.03.2026"
+"Phase11 Non Kabul","phase11-non-da51cb81-c7c3-4077-afca-c224f794f86a@example.com","Asil","referans_bekleniyor","27.03.2026"
+"Phase11 Kabul","phase11-ok-56978022-6149-4ac4-880f-d612896631ae@example.com","Akademik","kabul","27.03.2026"
+"Phase11 Non Kabul","phase11-non-be8171cf-52e4-4548-86f9-69f75b5243bc@example.com","Asil","referans_bekleniyor","27.03.2026"
+"Validation Test","valid@test.com","Asil","yk_ön_incelemede","27.03.2026"
+"Veto Test User","veto@test.com","Asil","reddedildi","27.03.2026"
+"Ahmet Yılmaz","ahmet@test.com","Asil","ön_onaylandı","27.03.2026"

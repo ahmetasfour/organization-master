@@ -5,27 +5,40 @@ import { useState } from 'react';
 import { RedHistoryBanner } from '../../../../components/applications/RedHistoryBanner';
 import { StatusBadge } from '../../../../components/applications/StatusBadge';
 import { StatusTimeline } from '../../../../components/applications/StatusTimeline';
+import { WebPublishBadge } from '../../../../components/applications/WebPublishBadge';
 import { ReputationPanel } from '../../../../components/reputation/ReputationPanel';
+import { ConsultationPanel } from '../../../../components/consultation/ConsultationPanel';
+import { ReferenceGrid } from '../../../../components/references/ReferenceGrid';
+import { VotePanel } from '../../../../components/voting/VotePanel';
+import { VoteSummaryPanel } from '../../../../components/voting/VoteSummary';
+import { WebPublishPanel } from '../../../../components/webpublish/WebPublishPanel';
 import { useApplication, useRedHistory, useTimeline } from '../../../../lib/hooks/useApplications';
+import { useVotes } from '../../../../lib/hooks/useVoting';
+import { useConsentStatus } from '../../../../lib/hooks/useWebPublish';
 import { useAuthStore } from '../../../../lib/store/auth.store';
+import { VoteStage } from '../../../../lib/api/voting';
 
-type Tab = 'overview' | 'timeline' | 'red-history' | 'reputation';
+type Tab = 'overview' | 'timeline' | 'red-history' | 'references' | 'consultation' | 'reputation' | 'votes' | 'webpublish';
 
 export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? '';
   const { user } = useAuthStore();
   const role = user?.role ?? '';
+  const userId = user?.id ?? '';
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
 
   const { data: app, isLoading, isError } = useApplication(id);
   const { data: timeline } = useTimeline(id);
+  
   const canViewRedHistory = role === 'yk' || role === 'admin';
   const { data: redHistory } = useRedHistory(
     id,
     canViewRedHistory && activeTab === 'red-history'
   );
+  
+  const { data: consentStatus } = useConsentStatus(id);
 
   if (isLoading) {
     return (
@@ -37,15 +50,42 @@ export default function ApplicationDetailPage() {
     return notFound();
   }
 
+  // Determine which tabs to show based on membership type and user role
+  const isAsilAkademik = ['asil', 'akademik'].includes(app.membership_type);
+  const isProfOgrenci = ['profesyonel', 'öğrenci'].includes(app.membership_type);
+  const isOnursal = app.membership_type === 'onursal';
+  
+  const canViewReferences = isAsilAkademik;
+  const canViewConsultation = isProfOgrenci;
+  const canViewReputation = isAsilAkademik && ['yk', 'koordinator', 'admin'].includes(role);
+  const canViewVotes = ['yk', 'admin'].includes(role);
+  const canViewWebPublish = role === 'admin' && app.status === 'kabul';
+
   const tabs: { key: Tab; label: string }[] = [
     { key: 'overview', label: 'Genel Bilgi' },
     { key: 'timeline', label: 'Zaman Çizelgesi' },
     ...(canViewRedHistory ? [{ key: 'red-history' as Tab, label: 'Red Geçmişi' }] : []),
-    ...(['asil', 'akademik'].includes(app.membership_type) &&
-    ['yk', 'koordinator', 'admin'].includes(role)
-      ? [{ key: 'reputation' as Tab, label: 'İtibar Tarama' }]
-      : []),
+    ...(canViewReferences ? [{ key: 'references' as Tab, label: 'Referanslar' }] : []),
+    ...(canViewConsultation ? [{ key: 'consultation' as Tab, label: 'Danışma' }] : []),
+    ...(canViewReputation ? [{ key: 'reputation' as Tab, label: 'İtibar Tarama' }] : []),
+    ...(canViewVotes ? [{ key: 'votes' as Tab, label: 'Oylar' }] : []),
+    ...(canViewWebPublish ? [{ key: 'webpublish' as Tab, label: 'Web Yayın' }] : []),
   ];
+
+  // Determine the current voting stage based on application status
+  const getVotingStage = (): VoteStage | null => {
+    if (['yk_ön_incelemede'].includes(app.status)) return 'yk_prelim';
+    if (['yik_değerlendirmede'].includes(app.status)) return 'yik';
+    if (['gündemde'].includes(app.status)) return 'yk_final';
+    return null;
+  };
+  
+  const currentVotingStage = getVotingStage();
+  const canVote = (stage: VoteStage): boolean => {
+    if (stage === 'yk_prelim' || stage === 'yk_final') return role === 'yk';
+    if (stage === 'yik') return role === 'yik';
+    return false;
+  };
 
   return (
     <div className="p-6 max-w-5xl space-y-6">
@@ -89,6 +129,12 @@ export default function ApplicationDetailPage() {
             <span className="text-xs text-gray-400 capitalize">
               {app.membership_type} üyeliği
             </span>
+            {app.status === 'kabul' && consentStatus && (
+              <WebPublishBadge 
+                webPublishConsent={consentStatus.consented ?? null} 
+                isPublished={consentStatus.is_published ?? false} 
+              />
+            )}
           </div>
         </div>
 
@@ -222,7 +268,185 @@ export default function ApplicationDetailPage() {
             />
           </div>
         )}
+
+        {/* Tab: Referanslar */}
+        {activeTab === 'references' && canViewReferences && (
+          <div className="bg-white border border-gray-200 border-t-0 rounded-b-xl p-6">
+            <ReferenceGrid applicationId={id} />
+          </div>
+        )}
+
+        {/* Tab: Danışma */}
+        {activeTab === 'consultation' && canViewConsultation && (
+          <div className="bg-white border border-gray-200 border-t-0 rounded-b-xl p-6">
+            <ConsultationPanel
+              applicationId={id}
+              membershipType={app.membership_type}
+            />
+          </div>
+        )}
+
+        {/* Tab: Oylar */}
+        {activeTab === 'votes' && canViewVotes && (
+          <div className="bg-white border border-gray-200 border-t-0 rounded-b-xl p-6 space-y-8">
+            {/* Show vote panels for applicable stages */}
+            {isOnursal ? (
+              // Onursal: YK Prelim → YİK → YK Final
+              <>
+                <VotingSection
+                  applicationId={id}
+                  applicantName={app.applicant_name}
+                  applicationStatus={app.status}
+                  rejectionReason={app.rejection_reason}
+                  stage="yk_prelim"
+                  viewerRole={role}
+                  viewerId={userId}
+                  currentStage={currentVotingStage}
+                  canVote={canVote('yk_prelim')}
+                />
+                <VotingSection
+                  applicationId={id}
+                  applicantName={app.applicant_name}
+                  applicationStatus={app.status}
+                  rejectionReason={app.rejection_reason}
+                  stage="yik"
+                  viewerRole={role}
+                  viewerId={userId}
+                  currentStage={currentVotingStage}
+                  canVote={canVote('yik')}
+                />
+                <VotingSection
+                  applicationId={id}
+                  applicantName={app.applicant_name}
+                  applicationStatus={app.status}
+                  rejectionReason={app.rejection_reason}
+                  stage="yk_final"
+                  viewerRole={role}
+                  viewerId={userId}
+                  currentStage={currentVotingStage}
+                  canVote={canVote('yk_final')}
+                />
+              </>
+            ) : isAsilAkademik ? (
+              // Asil/Akademik: YK Prelim → YK Final
+              <>
+                <VotingSection
+                  applicationId={id}
+                  applicantName={app.applicant_name}
+                  applicationStatus={app.status}
+                  rejectionReason={app.rejection_reason}
+                  stage="yk_prelim"
+                  viewerRole={role}
+                  viewerId={userId}
+                  currentStage={currentVotingStage}
+                  canVote={canVote('yk_prelim')}
+                />
+                <VotingSection
+                  applicationId={id}
+                  applicantName={app.applicant_name}
+                  applicationStatus={app.status}
+                  rejectionReason={app.rejection_reason}
+                  stage="yk_final"
+                  viewerRole={role}
+                  viewerId={userId}
+                  currentStage={currentVotingStage}
+                  canVote={canVote('yk_final')}
+                />
+              </>
+            ) : (
+              // Prof/Öğrenci: YK Final only
+              <VotingSection
+                applicationId={id}
+                applicantName={app.applicant_name}
+                applicationStatus={app.status}
+                rejectionReason={app.rejection_reason}
+                stage="yk_final"
+                viewerRole={role}
+                viewerId={userId}
+                currentStage={currentVotingStage}
+                canVote={canVote('yk_final')}
+              />
+            )}
+          </div>
+        )}
+
+        {/* Tab: Web Yayın */}
+        {activeTab === 'webpublish' && canViewWebPublish && (
+          <div className="bg-white border border-gray-200 border-t-0 rounded-b-xl p-6">
+            <WebPublishPanel
+              applicationId={id}
+              applicantName={app.applicant_name}
+              membershipType={app.membership_type}
+            />
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+interface VotingSectionProps {
+  applicationId: string;
+  applicantName: string;
+  applicationStatus: string;
+  rejectionReason?: string;
+  stage: VoteStage;
+  viewerRole: string;
+  viewerId: string;
+  currentStage: VoteStage | null;
+  canVote: boolean;
+}
+
+function VotingSection({
+  applicationId,
+  applicantName,
+  applicationStatus,
+  rejectionReason,
+  stage,
+  viewerRole,
+  viewerId,
+  currentStage,
+  canVote,
+}: VotingSectionProps) {
+  const { data: summary, isLoading } = useVotes(applicationId, stage);
+  
+  const isCurrentStage = currentStage === stage;
+  const showVotePanel = isCurrentStage && canVote;
+
+  if (isLoading) {
+    return (
+      <div className="animate-pulse">
+        <div className="h-6 w-48 bg-gray-200 rounded mb-4" />
+        <div className="h-24 bg-gray-100 rounded" />
+      </div>
+    );
+  }
+
+  // If no votes and not current stage, don't show this section
+  if (!summary && !isCurrentStage) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-4">
+      {showVotePanel ? (
+        <VotePanel
+          applicationId={applicationId}
+          applicantName={applicantName}
+          applicationStatus={applicationStatus}
+          rejectionReason={rejectionReason}
+          stage={stage}
+          viewerRole={viewerRole}
+          viewerId={viewerId}
+        />
+      ) : summary ? (
+        <VoteSummaryPanel
+          summary={summary}
+          canSeeDetails={viewerRole === 'yk' || viewerRole === 'admin'}
+        />
+      ) : null}
     </div>
   );
 }
