@@ -94,6 +94,10 @@ func RunMigrations(db *gorm.DB) error {
 		log.Printf("[DB] ✓ Executed %s", filepath.Base(migrationFile))
 	}
 
+	if err := ensureWebPublishConsentColumns(db); err != nil {
+		return fmt.Errorf("failed to ensure web_publish_consents schema: %w", err)
+	}
+
 	// Create trigger separately
 	if err := createRejectionReasonTrigger(db); err != nil {
 		log.Printf("[DB] ⚠ Failed to create trigger (may already exist): %v", err)
@@ -177,6 +181,53 @@ func executeSQLFile(db *gorm.DB, filePath string) error {
 	// Execute the SQL
 	if err := db.Exec(sql).Error; err != nil {
 		return fmt.Errorf("failed to execute SQL from %s: %w", foundPath, err)
+	}
+
+	return nil
+}
+
+func ensureWebPublishConsentColumns(db *gorm.DB) error {
+	var columnCount int64
+	if err := db.Raw(`
+		SELECT COUNT(*)
+		FROM information_schema.columns
+		WHERE table_schema = DATABASE()
+		  AND table_name = 'web_publish_consents'
+		  AND column_name = 'recorded_by'
+	`).Scan(&columnCount).Error; err != nil {
+		return err
+	}
+
+	if columnCount == 0 {
+		if err := db.Exec(`
+			ALTER TABLE web_publish_consents
+			ADD COLUMN recorded_by CHAR(36) NULL
+		`).Error; err != nil {
+			return err
+		}
+	}
+
+	var fkCount int64
+	if err := db.Raw(`
+		SELECT COUNT(*)
+		FROM information_schema.table_constraints
+		WHERE table_schema = DATABASE()
+		  AND table_name = 'web_publish_consents'
+		  AND constraint_type = 'FOREIGN KEY'
+		  AND constraint_name = 'fk_web_publish_consents_recorded_by'
+	`).Scan(&fkCount).Error; err != nil {
+		return err
+	}
+
+	if fkCount == 0 {
+		if err := db.Exec(`
+			ALTER TABLE web_publish_consents
+			ADD CONSTRAINT fk_web_publish_consents_recorded_by
+			FOREIGN KEY (recorded_by) REFERENCES users(id)
+			ON DELETE SET NULL
+		`).Error; err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -9,6 +9,7 @@ import (
 	"membership-system/api/internal/features/references"
 	"membership-system/api/internal/features/reputation"
 	"membership-system/api/internal/features/voting"
+	"membership-system/api/internal/features/webpublish"
 	"membership-system/api/internal/middleware"
 
 	"github.com/gofiber/fiber/v2"
@@ -26,6 +27,7 @@ func SetupRoutes(
 	reputationHandler *reputation.Handler,
 	votingHandler *voting.Handler,
 	honoraryHandler *honorary.Handler,
+	webpublishHandler *webpublish.Handler,
 ) {
 	// Apply global middleware
 	app.Use(middleware.CORSMiddleware())
@@ -54,6 +56,9 @@ func SetupRoutes(
 
 	// Public application submission
 	api.Post("/applications", appHandler.Submit)
+
+	// Public members list (no auth required)
+	api.Get("/members", webpublishHandler.GetPublishedMembers)
 
 	// Protected routes (require authentication)
 	protected := api.Group("", middleware.AuthMiddleware(authService))
@@ -130,5 +135,16 @@ func SetupRoutes(
 	// GET all honorary proposals (yk + admin)
 	protected.Get("/honorary",
 		honoraryHandler.ListProposals,
+	)
+
+	// ─── Web Publish Consent routes ─────────────────────────────────────────────
+	// POST/GET web publish consent (admin only)
+	protected.Post("/applications/:id/publish-consent",
+		middleware.AdminOnly(),
+		webpublishHandler.RecordConsent,
+	)
+	protected.Get("/applications/:id/publish-consent",
+		middleware.AdminOnly(),
+		webpublishHandler.GetConsentStatus,
 	)
 }
