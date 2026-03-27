@@ -13,6 +13,7 @@ import (
 	"membership-system/api/internal/features/applications"
 	"membership-system/api/internal/features/auth"
 	"membership-system/api/internal/features/consultations"
+	"membership-system/api/internal/features/honorary"
 	"membership-system/api/internal/features/logs"
 	"membership-system/api/internal/features/notifications"
 	"membership-system/api/internal/features/references"
@@ -96,6 +97,10 @@ func main() {
 	votingService := voting.NewService(votingRepo, authRepo, logRepo, db)
 	votingHandler := voting.NewHandler(votingService)
 
+	honoraryRepo := honorary.NewRepository(db)
+	honoraryService := honorary.NewService(honoraryRepo, authRepo, notifySvc)
+	honoraryHandler := honorary.NewHandler(honoraryService)
+
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
 		AppName:      "Membership Management System API v1.0",
@@ -106,7 +111,7 @@ func main() {
 	app.Use(recover.New())
 
 	// Setup routes
-	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler, refHandler, consultHandler, reputationHandler, votingHandler)
+	router.SetupRoutes(app, authHandler, authService, logRepo, appHandler, refHandler, consultHandler, reputationHandler, votingHandler, honoraryHandler)
 
 	// Start reminder cron (context cancelled on shutdown)
 	cronCtx, cancelCron := context.WithCancel(context.Background())

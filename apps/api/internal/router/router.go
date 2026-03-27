@@ -4,6 +4,7 @@ import (
 	"membership-system/api/internal/features/applications"
 	"membership-system/api/internal/features/auth"
 	"membership-system/api/internal/features/consultations"
+	"membership-system/api/internal/features/honorary"
 	"membership-system/api/internal/features/logs"
 	"membership-system/api/internal/features/references"
 	"membership-system/api/internal/features/reputation"
@@ -24,6 +25,7 @@ func SetupRoutes(
 	consultHandler *consultations.Handler,
 	reputationHandler *reputation.Handler,
 	votingHandler *voting.Handler,
+	honoraryHandler *honorary.Handler,
 ) {
 	// Apply global middleware
 	app.Use(middleware.CORSMiddleware())
@@ -117,5 +119,16 @@ func SetupRoutes(
 	protected.Post("/applications/:id/votes/yk-final",
 		middleware.YKOnly(),
 		votingHandler.CastVoteFinal,
+	)
+
+	// ─── Honorary Membership routes ─────────────────────────────────────────────
+	// POST honorary proposal (asil_uye + yik_uye only)
+	protected.Post("/honorary/propose",
+		honoraryHandler.Propose,
+	)
+
+	// GET all honorary proposals (yk + admin)
+	protected.Get("/honorary",
+		honoraryHandler.ListProposals,
 	)
 }
