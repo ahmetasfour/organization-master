@@ -49,10 +49,11 @@ func NewService(
 // emails, and advances the application status to referans_bekleniyor.
 //
 // This method satisfies the applications.ReferenceCreator interface.
+// It now accepts external referee contacts (name/email pairs) instead of user IDs.
 func (s *Service) CreateForApplication(
 	ctx context.Context,
 	appID, applicantName, applicantEmail, membershipType string,
-	refereeUserIDs []string,
+	references []shared.ReferenceInput,
 ) error {
 	app := AppContext{
 		ID:             appID,
@@ -60,32 +61,25 @@ func (s *Service) CreateForApplication(
 		ApplicantEmail: applicantEmail,
 		MembershipType: membershipType,
 	}
-	return s.createForApp(ctx, app, refereeUserIDs)
+	return s.createForApp(ctx, app, references)
 }
 
 // createForApp is the internal implementation shared by CreateForApplication.
-func (s *Service) createForApp(ctx context.Context, app AppContext, refereeUserIDs []string) error {
-	refs := make([]Reference, 0, len(refereeUserIDs))
+func (s *Service) createForApp(
+	ctx context.Context,
+	app AppContext,
+	references []shared.ReferenceInput,
+) error {
+	refs := make([]Reference, 0, len(references))
 
-	for _, userID := range refereeUserIDs {
-		// Look up user — must exist and be active
-		user, err := s.authRepo.FindByID(ctx, userID)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return fmt.Errorf("references: referee user %s not found", userID)
-			}
-			return fmt.Errorf("references: lookup referee: %w", err)
-		}
-		if !user.IsActive {
-			return fmt.Errorf("references: referee user %s is inactive", userID)
-		}
-
+	for _, ref := range references {
+		// Generate token for this external referee
 		tok := shared.GenerateToken()
 
 		refs = append(refs, Reference{
 			ApplicationID:  app.ID,
-			RefereeName:    user.FullName,
-			RefereeEmail:   user.Email,
+			RefereeName:    ref.RefereeName,
+			RefereeEmail:   ref.RefereeEmail,
 			TokenHash:      tok.HashedToken,
 			TokenExpiresAt: tok.ExpiresAt,
 			IsReplacement:  false,
@@ -96,8 +90,8 @@ func (s *Service) createForApp(ctx context.Context, app AppContext, refereeUserI
 		if err := s.notifySvc.SendReferenceRequest(
 			ctx,
 			"", // refID not yet set — will be logged with appID
-			user.Email,
-			user.FullName,
+			ref.RefereeEmail,
+			ref.RefereeName,
 			tok.RawToken,
 			app.ApplicantName,
 			string(app.MembershipType),
@@ -105,7 +99,7 @@ func (s *Service) createForApp(ctx context.Context, app AppContext, refereeUserI
 		); err != nil {
 			// Non-fatal: log and continue so other refs still get emails
 			_ = s.writeLog(ctx, "ref.email_failed", app.ID, "application", map[string]interface{}{
-				"referee_email": user.Email,
+				"referee_email": ref.RefereeEmail,
 				"error":         err.Error(),
 			})
 		}
@@ -257,10 +251,11 @@ func (s *Service) SubmitResponse(
 			type appInfo2 struct {
 				ApplicantName  string `gorm:"column:applicant_name"`
 				ApplicantEmail string `gorm:"column:applicant_email"`
+				MembershipType string `gorm:"column:membership_type"`
 			}
 			var info appInfo2
 			if err := tx.Table("applications").
-				Select("applicant_name", "applicant_email").
+				Select("applicant_name", "applicant_email", "membership_type").
 				Where("id = ?", ref.ApplicationID).
 				First(&info).Error; err != nil {
 				return fmt.Errorf("references: load app for unknown: %w", err)
@@ -274,13 +269,16 @@ func (s *Service) SubmitResponse(
 				Scan(&maxRound)
 			nextRound := maxRound.Round + 1
 
-			// Create replacement reference placeholder (no token yet — coordinator must resend)
+			// Generate replacement token
+			tok := shared.GenerateToken()
+
+			// Create replacement reference placeholder with valid token
 			replacement := &Reference{
 				ApplicationID:  ref.ApplicationID,
-				RefereeName:    "", // to be filled when applicant selects new referee
-				RefereeEmail:   "",
-				TokenHash:      uuid.New().String(),           // placeholder — will be overwritten on resend
-				TokenExpiresAt: now.Add(1 * time.Millisecond), // expired immediately so it can't be used
+				RefereeName:    ref.RefereeName, // Store the unknown referee name for display
+				RefereeEmail:   "",              // Will be filled when applicant provides replacement
+				TokenHash:      tok.HashedToken,
+				TokenExpiresAt: tok.ExpiresAt,
 				IsReplacement:  true,
 				Round:          nextRound,
 			}
@@ -293,8 +291,16 @@ func (s *Service) SubmitResponse(
 				"round":           nextRound,
 			})
 
-			// Notify applicant
-			_ = s.notifySvc.SendNewRefNeeded(ctx, ref.ApplicationID, info.ApplicantEmail, info.ApplicantName, ref.RefereeName)
+			// Notify applicant with replacement link
+			_ = s.notifySvc.SendNewRefNeeded(
+				ctx,
+				ref.ApplicationID,
+				info.ApplicantEmail,
+				info.ApplicantName,
+				ref.RefereeName,
+				tok.RawToken,
+				info.MembershipType,
+			)
 
 		case ResponsePositive:
 			// Check if ALL references are done and we have >= 3 positives
@@ -374,7 +380,123 @@ func (s *Service) ResendToken(
 	return nil
 }
 
+// ─── Replacement Reference Flow ────────────────────────────────────────────────
+
+// GetReplacementFormData validates the replacement token and returns form data.
+// Public endpoint — no authentication required.
+func (s *Service) GetReplacementFormData(ctx context.Context, rawToken string) (*ReplacementFormData, error) {
+	tokenHash := shared.HashToken(rawToken)
+
+	ref, appCtx, err := s.repo.FindReplacementByToken(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, shared.ErrNotFound
+		}
+		return nil, fmt.Errorf("references: find replacement by token: %w", err)
+	}
+
+	// Check if token expired
+	if ref.IsTokenExpired() {
+		return nil, shared.ErrTokenExpired
+	}
+
+	// Check if token already used
+	if ref.IsTokenUsed() {
+		return nil, shared.ErrTokenUsed
+	}
+
+	// Return form data
+	return &ReplacementFormData{
+		ApplicantName:      appCtx.ApplicantName,
+		MembershipType:     appCtx.MembershipType,
+		UnknownRefereeName: ref.RefereeName,
+		ApplicationID:      ref.ApplicationID,
+	}, nil
+}
+
+// SubmitReplacement processes a replacement reference submission.
+// Updates the reference with new referee info, marks token as used,
+// generates new token, and sends reference request email.
+func (s *Service) SubmitReplacement(ctx context.Context, rawToken string, req *SubmitReplacementRequest) error {
+	tokenHash := shared.HashToken(rawToken)
+
+	ref, appCtx, err := s.repo.FindReplacementByToken(ctx, tokenHash)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return shared.ErrNotFound
+		}
+		return fmt.Errorf("references: find replacement by token: %w", err)
+	}
+
+	// Validate token
+	if ref.IsTokenExpired() {
+		return shared.ErrTokenExpired
+	}
+	if ref.IsTokenUsed() {
+		return shared.ErrTokenUsed
+	}
+
+	// Check if application is not terminated
+	var appStatus struct{ Status string }
+	if err := s.db.WithContext(ctx).Table("applications").
+		Select("status").
+		Where("id = ?", ref.ApplicationID).
+		First(&appStatus).Error; err != nil {
+		return shared.ErrNotFound
+	}
+	if isTerminalStatus(appStatus.Status) {
+		return shared.ErrApplicationTerminated
+	}
+
+	// Update referee info
+	if err := s.repo.UpdateRefereeInfo(ctx, ref.ID, req.RefereeName, req.RefereeEmail); err != nil {
+		return fmt.Errorf("references: update referee info: %w", err)
+	}
+
+	// Mark replacement token as used
+	if err := s.repo.MarkTokenUsed(ctx, ref.ID); err != nil {
+		return fmt.Errorf("references: mark token used: %w", err)
+	}
+
+	// Generate new token for the reference request
+	tok := shared.GenerateToken()
+	if err := s.repo.UpdateToken(ctx, ref.ID, tok.HashedToken, tok.ExpiresAt); err != nil {
+		return fmt.Errorf("references: update token: %w", err)
+	}
+
+	// Send reference request email to new referee
+	if err := s.notifySvc.SendReferenceRequest(
+		ctx,
+		ref.ID,
+		req.RefereeEmail,
+		req.RefereeName,
+		tok.RawToken,
+		appCtx.ApplicantName,
+		appCtx.MembershipType,
+		tok.ExpiresAt,
+	); err != nil {
+		return fmt.Errorf("references: send reference request: %w", err)
+	}
+
+	_ = s.writeLog(ctx, "ref.replaced", ref.ID, "reference", map[string]interface{}{
+		"old_referee_name": ref.RefereeName,
+		"new_referee_name": req.RefereeName,
+		"round":            ref.Round,
+	})
+
+	return nil
+}
+
 // ─── helpers ───────────────────────────────────────────────────────────────────
+
+// isTerminalStatus checks if an application status is terminal (final).
+func isTerminalStatus(status string) bool {
+	switch status {
+	case "referans_red", "yk_red", "itibar_red", "danışma_red", "yik_red", "reddedildi", "kabul":
+		return true
+	}
+	return false
+}
 
 func (s *Service) writeLog(ctx context.Context, action, entityID, entityType string, meta map[string]interface{}) error {
 	return writeLogTx(ctx, s.db, action, entityID, entityType, meta)

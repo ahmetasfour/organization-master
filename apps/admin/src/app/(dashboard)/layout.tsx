@@ -50,6 +50,12 @@ const navItems: NavItem[] = [
     roles: ['yk', 'admin', 'koordinator'],
     icon: <FileText className="h-5 w-5" />,
   },
+  {
+    href: '/users',
+    label: 'Kullanıcılar',
+    roles: ['admin'],
+    icon: <Users className="h-5 w-5" />,
+  },
 ];
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────

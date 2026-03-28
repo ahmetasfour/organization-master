@@ -266,3 +266,55 @@ func (s *Service) findTerminatedByEmail(ctx context.Context, email string) (stri
 	}
 	return r.EntityID, nil
 }
+
+// AdvanceStatus manually advances an application to a target status.
+// Only allowed for non-terminated applications and valid transitions.
+// Used by koordinator/admin to move applications through the workflow.
+func (s *Service) AdvanceStatus(
+	ctx context.Context,
+	appID string,
+	targetStatus ApplicationStatus,
+	actorID string,
+	actorRole string,
+) error {
+	// 1. Load application
+	app, err := s.repo.FindByID(ctx, appID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return shared.ErrNotFound
+		}
+		return fmt.Errorf("applications: advance status: %w", err)
+	}
+
+	// 2. Check if terminated
+	if IsTerminated(app.Status) {
+		return errors.New("cannot advance a terminated application")
+	}
+
+	// 3. Validate transition
+	if err := ValidateTransition(app.MembershipType, app.Status, targetStatus); err != nil {
+		return err
+	}
+
+	// 4. Update status
+	if err := s.repo.UpdateStatus(ctx, appID, targetStatus); err != nil {
+		return fmt.Errorf("applications: update status: %w", err)
+	}
+
+	// 5. Log the action
+	metadata, _ := json.Marshal(map[string]interface{}{
+		"from":          app.Status,
+		"to":            targetStatus,
+		"advanced_by":   actorID,
+		"advanced_role": actorRole,
+	})
+	_ = s.logRepo.Create(ctx, &logs.Log{
+		Action:     "application.status_advanced",
+		ActorID:    &actorID,
+		EntityType: "application",
+		EntityID:   appID,
+		Metadata:   datatypes.JSON(metadata),
+	})
+
+	return nil
+}

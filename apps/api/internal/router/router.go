@@ -58,6 +58,11 @@ func SetupRoutes(
 	refGroup.Get("/:token", middleware.PublicTokenRateLimiter(), refHandler.GetFormData)
 	refGroup.Post("/:token", middleware.PublicTokenRateLimiter(), refHandler.SubmitResponse)
 
+	// Public replacement reference routes (rate limited)
+	replaceGroup := api.Group("/ref/replace")
+	replaceGroup.Get("/:token", middleware.PublicTokenRateLimiter(), refHandler.GetReplacementFormData)
+	replaceGroup.Post("/:token", middleware.PublicTokenRateLimiter(), refHandler.SubmitReplacement)
+
 	// Public application submission
 	api.Post("/applications", appHandler.Submit)
 
@@ -67,11 +72,19 @@ func SetupRoutes(
 	// Protected routes (require authentication)
 	protected := api.Group("", middleware.AuthMiddleware(authService))
 
+	// User management routes (admin only)
+	protected.Get("/users", middleware.AdminOnly(), authHandler.ListUsers)
+	protected.Post("/users", middleware.AdminOnly(), authHandler.CreateUser)
+	protected.Get("/users/active", authHandler.ListActiveUsers) // All authenticated users
+	protected.Get("/users/:id", middleware.AdminOnly(), authHandler.GetUser)
+	protected.Patch("/users/:id", middleware.AdminOnly(), authHandler.UpdateUser)
+
 	// Application routes with RBAC
 	protected.Get("/applications", middleware.YKOrKoordinator(), appHandler.ListAll)
 	protected.Get("/applications/:id", appHandler.GetByID)
 	protected.Get("/applications/:id/timeline", middleware.YKOrAdmin(), appHandler.GetTimeline)
 	protected.Get("/applications/:id/red-history", middleware.YKOrAdmin(), appHandler.GetRedHistory)
+	protected.Patch("/applications/:id/advance", middleware.YKOrKoordinator(), appHandler.Advance)
 
 	// Reference resend — koordinator or admin only
 	protected.Post("/applications/:id/references/resend/:refId",

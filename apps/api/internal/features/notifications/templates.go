@@ -31,7 +31,8 @@ type ReferenceReminderData struct {
 type NewRefNeededData struct {
 	ApplicantName      string
 	UnknownRefereeName string
-	PortalURL          string
+	ReplacementURL     string
+	MembershipType     string
 }
 
 // ReputationQueryData is the data passed to reputation_query.html.

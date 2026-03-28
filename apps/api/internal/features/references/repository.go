@@ -140,3 +140,47 @@ func (r *Repository) CreateReplacement(ctx context.Context, appID, refereeName, 
 	}
 	return ref, nil
 }
+
+// FindReplacementByToken finds a replacement reference by its token hash.
+// Returns the reference with preloaded application data (applicant_name, membership_type).
+func (r *Repository) FindReplacementByToken(ctx context.Context, tokenHash string) (*Reference, *AppContext, error) {
+	var ref Reference
+	if err := r.db.WithContext(ctx).
+		Where("token_hash = ? AND is_replacement = true", tokenHash).
+		First(&ref).Error; err != nil {
+		return nil, nil, err
+	}
+
+	// Load application context
+	var app struct {
+		ID             string `gorm:"column:id"`
+		ApplicantName  string `gorm:"column:applicant_name"`
+		ApplicantEmail string `gorm:"column:applicant_email"`
+		MembershipType string `gorm:"column:membership_type"`
+	}
+	if err := r.db.WithContext(ctx).Table("applications").
+		Where("id = ?", ref.ApplicationID).
+		First(&app).Error; err != nil {
+		return nil, nil, err
+	}
+
+	appCtx := &AppContext{
+		ID:             app.ID,
+		ApplicantName:  app.ApplicantName,
+		ApplicantEmail: app.ApplicantEmail,
+		MembershipType: app.MembershipType,
+	}
+
+	return &ref, appCtx, nil
+}
+
+// UpdateRefereeInfo updates the referee name and email for a replacement reference.
+func (r *Repository) UpdateRefereeInfo(ctx context.Context, refID, refereeName, refereeEmail string) error {
+	return r.db.WithContext(ctx).
+		Model(&Reference{}).
+		Where("id = ?", refID).
+		Updates(map[string]interface{}{
+			"referee_name":  refereeName,
+			"referee_email": refereeEmail,
+		}).Error
+}

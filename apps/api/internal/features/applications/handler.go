@@ -15,7 +15,7 @@ import (
 // ReferenceCreator abstracts the reference service to avoid a direct import cycle.
 // It is satisfied by *references.Service.
 type ReferenceCreator interface {
-	CreateForApplication(ctx context.Context, appID, applicantName, applicantEmail, membershipType string, refereeUserIDs []string) error
+	CreateForApplication(ctx context.Context, appID, applicantName, applicantEmail, membershipType string, references []ReferenceInput) error
 }
 
 // Handler handles HTTP requests for the applications feature.
@@ -63,9 +63,8 @@ func (h *Handler) Submit(c *fiber.Ctx) error {
 
 	// For asil/akademik applications, create reference records and send emails.
 	if h.refCreator != nil && (req.MembershipType == MembershipAsil || req.MembershipType == MembershipAkademik) {
-		refereeIDs := make([]string, 0, len(req.References))
-		for _, r := range req.References {
-			refereeIDs = append(refereeIDs, r.UserID)
+		if len(req.References) < 3 {
+			return shared.Error(c, fiber.StatusUnprocessableEntity, "INVALID_REFERENCES", "Asil ve Akademik başvurular için minimum 3 referans gereklidir")
 		}
 		if err := h.refCreator.CreateForApplication(
 			c.Context(),
@@ -73,7 +72,7 @@ func (h *Handler) Submit(c *fiber.Ctx) error {
 			result.Application.ApplicantName,
 			result.Application.ApplicantEmail,
 			string(result.Application.MembershipType),
-			refereeIDs,
+			req.References,
 		); err != nil {
 			// Non-fatal: the application is created — log and return partial success.
 			return shared.Created(c, fiber.Map{
@@ -158,6 +157,42 @@ func (h *Handler) GetRedHistory(c *fiber.Ctx) error {
 	}
 
 	return shared.Success(c, history)
+}
+
+// Advance handles PATCH /api/v1/applications/:id/advance
+func (h *Handler) Advance(c *fiber.Ctx) error {
+	id := c.Params("id")
+	if id == "" {
+		return shared.Error(c, fiber.StatusBadRequest, "INVALID_ID", "Başvuru ID'si gereklidir")
+	}
+
+	var req AdvanceStatusRequest
+	if err := c.BodyParser(&req); err != nil {
+		return shared.Error(c, fiber.StatusBadRequest, "INVALID_BODY", "Geçersiz istek formatı")
+	}
+
+	if err := h.validate.Struct(&req); err != nil {
+		fields := make(map[string]string)
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			for _, e := range ve {
+				fields[e.Field()] = e.Tag()
+			}
+		}
+		return shared.ValidationError(c, fields)
+	}
+
+	// Get actor info from JWT
+	actorID, _ := c.Locals("userID").(string)
+	actorRole, _ := c.Locals("userRole").(string)
+
+	if err := h.service.AdvanceStatus(c.Context(), id, req.TargetStatus, actorID, actorRole); err != nil {
+		return mapError(c, err)
+	}
+
+	return shared.Success(c, fiber.Map{
+		"message": "Başvuru durumu başarıyla güncellendi",
+	})
 }
 
 // mapError converts domain errors to HTTP responses.

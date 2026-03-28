@@ -118,6 +118,53 @@ func (h *Handler) ResendToken(c *fiber.Ctx) error {
 	return shared.Success(c, fiber.Map{"message": "Referans e-postası yeniden gönderildi."})
 }
 
+// GetReplacementFormData handles GET /api/v1/ref/replace/:token
+// Public endpoint — no authentication required.
+func (h *Handler) GetReplacementFormData(c *fiber.Ctx) error {
+	rawToken := c.Params("token")
+	if rawToken == "" {
+		return shared.Error(c, fiber.StatusBadRequest, "MISSING_TOKEN", "Token gereklidir")
+	}
+
+	data, err := h.service.GetReplacementFormData(c.Context(), rawToken)
+	if err != nil {
+		return mapRefError(c, err)
+	}
+
+	return shared.Success(c, data)
+}
+
+// SubmitReplacement handles POST /api/v1/ref/replace/:token
+// Public endpoint — no authentication required.
+func (h *Handler) SubmitReplacement(c *fiber.Ctx) error {
+	rawToken := c.Params("token")
+	if rawToken == "" {
+		return shared.Error(c, fiber.StatusBadRequest, "MISSING_TOKEN", "Token gereklidir")
+	}
+
+	var req SubmitReplacementRequest
+	if err := c.BodyParser(&req); err != nil {
+		return shared.Error(c, fiber.StatusBadRequest, "INVALID_BODY", "Geçersiz istek formatı")
+	}
+
+	if err := h.validate.Struct(&req); err != nil {
+		fields := make(map[string]string)
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			for _, e := range ve {
+				fields[e.Field()] = e.Tag()
+			}
+		}
+		return shared.ValidationError(c, fields)
+	}
+
+	if err := h.service.SubmitReplacement(c.Context(), rawToken, &req); err != nil {
+		return mapRefError(c, err)
+	}
+
+	return shared.Success(c, fiber.Map{"message": "Yeni referans kaydedildi ve e-posta gönderildi."})
+}
+
 // ─── error mapper ──────────────────────────────────────────────────────────────
 
 func mapRefError(c *fiber.Ctx, err error) error {

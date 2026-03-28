@@ -56,11 +56,12 @@ const tmplNewRefNeeded = `<!DOCTYPE html>
   <h2 style="color:#1a1a2e">Yeni Referans Gerekiyor</h2>
   <p>Sayın <strong>{{.ApplicantName}}</strong>,</p>
   <p>
+    <strong>{{.MembershipType}}</strong> üyeliği için yaptığınız başvuruda,
     <strong>{{.UnknownRefereeName}}</strong> adlı referansınız sizi tanımadığını bildirmiştir.
   </p>
-  <p>Başvurunuzun değerlendirmeye devam edebilmesi için lütfen sisteme giriş yaparak yeni bir referans ekleyiniz.</p>
+  <p>Başvurunuzun değerlendirmeye devam edebilmesi için lütfen aşağıdaki bağlantıya tıklayarak yeni bir referans bilgisi giriniz:</p>
   <p>
-    <a href="{{.PortalURL}}" style="
+    <a href="{{.ReplacementURL}}" style="
       display:inline-block;
       background:#1a73e8;
       color:#fff;
@@ -68,7 +69,10 @@ const tmplNewRefNeeded = `<!DOCTYPE html>
       border-radius:4px;
       text-decoration:none;
       font-weight:600
-    ">Portala Git</a>
+    ">Yeni Referans Ekle</a>
+  </p>
+  <p style="color:#666;font-size:0.875rem">
+    Bu bağlantı bir kez kullanılabilir ve 7 gün içinde geçerliliğini yitirecektir.
   </p>
   <hr style="border:none;border-top:1px solid #eee;margin:24px 0">
   <p style="color:#999;font-size:0.75rem">
@@ -310,12 +314,15 @@ func (s *Service) SendReferenceRequest(
 // SendNewRefNeeded notifies an applicant that one of their referees said "unknown".
 func (s *Service) SendNewRefNeeded(
 	ctx context.Context,
-	appID, applicantEmail, applicantName, unknownRefereeName string,
+	appID, applicantEmail, applicantName, unknownRefereeName, rawToken, membershipType string,
 ) error {
+	replacementURL := fmt.Sprintf("%s/apply/replace-reference/%s", s.baseURL, rawToken)
+
 	data := NewRefNeededData{
 		ApplicantName:      applicantName,
 		UnknownRefereeName: unknownRefereeName,
-		PortalURL:          s.baseURL,
+		ReplacementURL:     replacementURL,
+		MembershipType:     membershipType,
 	}
 
 	html, text, err := Render(tmplNewRefNeeded, data)

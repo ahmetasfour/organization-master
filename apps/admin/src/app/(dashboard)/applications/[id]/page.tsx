@@ -6,6 +6,7 @@ import { RedHistoryBanner } from '../../../../components/applications/RedHistory
 import { StatusBadge } from '../../../../components/applications/StatusBadge';
 import { StatusTimeline } from '../../../../components/applications/StatusTimeline';
 import { WebPublishBadge } from '../../../../components/applications/WebPublishBadge';
+import ActionPanel from '../../../../components/applications/ActionPanel';
 import { ReputationPanel } from '../../../../components/reputation/ReputationPanel';
 import { ConsultationPanel } from '../../../../components/consultation/ConsultationPanel';
 import { ReferenceGrid } from '../../../../components/references/ReferenceGrid';
@@ -147,6 +148,14 @@ export default function ApplicationDetailPage() {
           <StatusTimeline membershipType={app.membership_type} currentStatus={app.status} />
         </div>
       </div>
+
+      {/* Action Panel - Manual status advancement */}
+      <ActionPanel
+        applicationId={id}
+        currentStatus={app.status}
+        membershipType={app.membership_type}
+        userRole={role}
+      />
 
       {/* Tabs */}
       <div>

@@ -1,25 +1,31 @@
 package applications
 
-import "time"
+import (
+	"membership-system/api/internal/shared"
+	"time"
+)
 
 // ─── Request DTOs ─────────────────────────────────────────────────────────────
 
-// ReferenceInput identifies a referee by their system user ID.
-type ReferenceInput struct {
-	UserID string `json:"user_id" validate:"required,uuid4"`
-}
+// ReferenceInput is aliased from shared package to avoid circular imports.
+type ReferenceInput = shared.ReferenceInput
 
 // CreateApplicationRequest is the payload for POST /api/v1/applications.
 type CreateApplicationRequest struct {
 	ApplicantName    string           `json:"applicant_name"  validate:"required,min=2,max=255"`
 	ApplicantEmail   string           `json:"applicant_email" validate:"required,email"`
-	ApplicantPhone   string           `json:"applicant_phone"`
+	ApplicantPhone   string           `json:"applicant_phone" validate:"omitempty,e164"` // E.164 format
 	LinkedInURL      string           `json:"linkedin_url"    validate:"omitempty,linkedin_url"`
 	PhotoURL         string           `json:"photo_url"       validate:"omitempty,photo_url"`
 	MembershipType   MembershipType   `json:"membership_type" validate:"required,oneof=asil akademik profesyonel öğrenci onursal"`
 	ProposalReason   string           `json:"proposal_reason"`
 	ProposedByUserID string           `json:"proposed_by_user_id"`
 	References       []ReferenceInput `json:"references"`
+}
+
+// AdvanceStatusRequest is the payload for PATCH /api/v1/applications/:id/advance.
+type AdvanceStatusRequest struct {
+	TargetStatus ApplicationStatus `json:"target_status" validate:"required"`
 }
 
 // ─── Response DTOs ─────────────────────────────────────────────────────────────
