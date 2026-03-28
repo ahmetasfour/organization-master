@@ -8,7 +8,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { FileText, ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
+import { FileText, ChevronLeft, ChevronRight, X, Eye, ExternalLink } from 'lucide-react';
 import { useLogs } from '@/lib/hooks/useLogs';
 import { LogEntry, LogFilters } from '@/lib/api/logs';
 import { useAuthStore } from '@/lib/store/auth.store';
@@ -40,6 +40,15 @@ interface LogDetailDrawerProps {
 }
 
 function LogDetailDrawer({ log, onClose, showActorName }: LogDetailDrawerProps) {
+  const router = useRouter();
+  
+  const handleNavigateToEntity = () => {
+    if (log.entity_type === 'application' && log.entity_id) {
+      router.push(`/applications/${log.entity_id}`);
+      onClose();
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex">
       {/* Overlay */}
@@ -63,6 +72,12 @@ function LogDetailDrawer({ log, onClose, showActorName }: LogDetailDrawerProps) 
           {/* Basic info */}
           <div className="space-y-3">
             <InfoRow label="Tarih" value={formatDateTime(log.created_at)} />
+            {log.description && (
+              <div className="space-y-1">
+                <span className="text-sm text-gray-500">Açıklama</span>
+                <p className="text-sm font-medium text-gray-900">{log.description}</p>
+              </div>
+            )}
             <InfoRow label="İşlem" value={log.action} />
             <InfoRow label="Varlık Tipi" value={log.entity_type} />
             <InfoRow label="Varlık ID" value={log.entity_id} mono />
@@ -87,6 +102,19 @@ function LogDetailDrawer({ log, onClose, showActorName }: LogDetailDrawerProps) 
             </div>
           )}
         </div>
+
+        {/* Footer - Action Button */}
+        {log.entity_type === 'application' && (
+          <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
+            <button
+              onClick={handleNavigateToEntity}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Başvuruya Git
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -195,13 +223,17 @@ function LogsContent() {
         ]
       : []),
     {
-      accessorKey: 'action',
-      header: 'İşlem',
-      cell: ({ getValue }) => (
-        <span className="text-sm font-medium text-gray-900">
-          {getValue() as string}
-        </span>
-      ),
+      accessorKey: 'description',
+      header: 'Açıklama',
+      cell: ({ getValue, row }) => {
+        const description = getValue() as string;
+        const action = row.original.action;
+        return (
+          <span className="text-sm text-gray-900">
+            {description || action}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'entity_type',

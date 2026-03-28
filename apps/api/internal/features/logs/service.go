@@ -20,6 +20,11 @@ func NewService(repo *Repository) *Service {
 
 // Create creates a new audit log entry
 func (s *Service) Create(ctx context.Context, actorID, actorRole, action, entityType, entityID string, metadata map[string]interface{}, ipAddress string) error {
+	return s.CreateWithDescription(ctx, actorID, actorRole, action, "", entityType, entityID, metadata, ipAddress)
+}
+
+// CreateWithDescription creates a new audit log entry with a human-readable description
+func (s *Service) CreateWithDescription(ctx context.Context, actorID, actorRole, action, description, entityType, entityID string, metadata map[string]interface{}, ipAddress string) error {
 	// Convert metadata to JSON
 	var metadataJSON []byte
 	if metadata != nil {
@@ -34,15 +39,16 @@ func (s *Service) Create(ctx context.Context, actorID, actorRole, action, entity
 	}
 
 	log := &Log{
-		ID:         uuid.New().String(),
-		Action:     action,
-		ActorID:    &actorID,
-		ActorRole:  actorRole,
-		EntityType: entityType,
-		EntityID:   entityID,
-		IPAddress:  ipAddress,
-		Metadata:   metadataJSON,
-		CreatedAt:  time.Now(),
+		ID:          uuid.New().String(),
+		Action:      action,
+		Description: description,
+		ActorID:     &actorID,
+		ActorRole:   actorRole,
+		EntityType:  entityType,
+		EntityID:    entityID,
+		IPAddress:   ipAddress,
+		Metadata:    metadataJSON,
+		CreatedAt:   time.Now(),
 	}
 
 	return s.repo.Create(ctx, log)

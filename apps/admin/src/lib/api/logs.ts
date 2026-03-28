@@ -8,6 +8,7 @@ export interface LogEntry {
   actor_role: string;
   actor_name?: string; // Only visible to admin
   action: string;
+  description?: string; // Human-readable description
   entity_type: string;
   entity_id: string;
   metadata?: Record<string, unknown>;

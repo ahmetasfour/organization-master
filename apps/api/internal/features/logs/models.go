@@ -16,6 +16,9 @@ type Log struct {
 	// Action identifier (e.g., "application.created", "vote.cast", "auth.login")
 	Action string `gorm:"type:varchar(255);not null;index" json:"action"`
 
+	// Human-readable description (e.g., "YK Üyesi Ahmet Yılmaz başvuruya pozitif oy verdi")
+	Description string `gorm:"type:varchar(500);index" json:"description,omitempty"`
+
 	// Actor information
 	ActorID    *string `gorm:"type:char(36);index" json:"actor_id,omitempty"`
 	ActorRole  string  `gorm:"type:varchar(50)" json:"actor_role,omitempty"`

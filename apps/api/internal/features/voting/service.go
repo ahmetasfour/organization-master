@@ -176,7 +176,31 @@ func (s *Service) CastVote(
 		return fmt.Errorf("voting: persist vote: %w", err)
 	}
 
-	_ = s.writeLog(ctx, "vote.cast", appID, "application", map[string]interface{}{
+	// Get voter name for description
+	var voter voteUserRow
+	voterName := "Bilinmeyen"
+	if err := s.db.WithContext(ctx).First(&voter, "id = ?", voterID).Error; err == nil {
+		voterName = voter.FullName
+	}
+
+	// Create readable description
+	voteTypeText := "pozitif"
+	if isVeto {
+		voteTypeText = "negatif (red)"
+	}
+	stageName := string(stage)
+	switch stage {
+	case VoteStageYKPrelim:
+		stageName = "YK Ön İnceleme"
+	case VoteStageYIK:
+		stageName = "YİK Değerlendirme"
+	case VoteStageYKFinal:
+		stageName = "YK Final"
+	}
+
+	description := fmt.Sprintf("%s %s oylamasında %s oy verdi", voterName, stageName, voteTypeText)
+
+	_ = s.writeLogWithDesc(ctx, "vote.cast", description, appID, "application", map[string]interface{}{
 		"voter_id":  voterID,
 		"role":      voterRole,
 		"stage":     string(stage),
@@ -194,7 +218,9 @@ func (s *Service) CastVote(
 			}
 			return fmt.Errorf("voting: terminate on veto: %w", termErr)
 		}
-		_ = s.writeLog(ctx, "vote.veto", appID, "application", map[string]interface{}{
+
+		vetoDesc := fmt.Sprintf("%s %s oylamasında red oyu verdi ve başvuru reddedildi", voterName, stageName)
+		_ = s.writeLogWithDesc(ctx, "vote.veto", vetoDesc, appID, "application", map[string]interface{}{
 			"voter_id": voterID,
 			"role":     voterRole,
 			"stage":    string(stage),
@@ -377,6 +403,10 @@ func (s *Service) writeLog(ctx context.Context, action, entityID, entityType str
 	return voteWriteLogTx(ctx, s.db, action, entityID, entityType, meta)
 }
 
+func (s *Service) writeLogWithDesc(ctx context.Context, action, description, entityID, entityType string, meta map[string]interface{}) error {
+	return voteWriteLogTxWithDesc(ctx, s.db, action, description, entityID, entityType, meta)
+}
+
 func voteWriteLogTx(ctx context.Context, db *gorm.DB, action, entityID, entityType string, meta map[string]interface{}) error {
 	m, _ := json.Marshal(meta)
 	entry := struct {
@@ -396,6 +426,31 @@ func voteWriteLogTx(ctx context.Context, db *gorm.DB, action, entityID, entityTy
 		EntityID:   entityID,
 		Metadata:   datatypes.JSON(m),
 		CreatedAt:  time.Now(),
+	}
+	return db.WithContext(ctx).Table("logs").Create(&entry).Error
+}
+
+func voteWriteLogTxWithDesc(ctx context.Context, db *gorm.DB, action, description, entityID, entityType string, meta map[string]interface{}) error {
+	m, _ := json.Marshal(meta)
+	entry := struct {
+		ID          string         `gorm:"column:id"`
+		Action      string         `gorm:"column:action"`
+		Description string         `gorm:"column:description"`
+		ActorID     *string        `gorm:"column:actor_id"`
+		ActorRole   string         `gorm:"column:actor_role"`
+		EntityType  string         `gorm:"column:entity_type"`
+		EntityID    string         `gorm:"column:entity_id"`
+		Metadata    datatypes.JSON `gorm:"column:metadata"`
+		CreatedAt   time.Time      `gorm:"column:created_at"`
+	}{
+		ID:          uuid.New().String(),
+		Action:      action,
+		Description: description,
+		ActorRole:   "system",
+		EntityType:  entityType,
+		EntityID:    entityID,
+		Metadata:    datatypes.JSON(m),
+		CreatedAt:   time.Now(),
 	}
 	return db.WithContext(ctx).Table("logs").Create(&entry).Error
 }

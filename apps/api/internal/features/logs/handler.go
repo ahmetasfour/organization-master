@@ -35,16 +35,17 @@ type ListFilters struct {
 
 // LogResponse represents the log entry returned to clients
 type LogResponse struct {
-	ID         string                 `json:"id"`
-	ActorID    string                 `json:"actor_id"`
-	ActorRole  string                 `json:"actor_role"`
-	ActorName  *string                `json:"actor_name,omitempty"` // Only for admin
-	Action     string                 `json:"action"`
-	EntityType string                 `json:"entity_type"`
-	EntityID   string                 `json:"entity_id"`
-	Metadata   map[string]interface{} `json:"metadata,omitempty"`
-	IPAddress  string                 `json:"ip_address,omitempty"`
-	CreatedAt  time.Time              `json:"created_at"`
+	ID          string                 `json:"id"`
+	ActorID     string                 `json:"actor_id"`
+	ActorRole   string                 `json:"actor_role"`
+	ActorName   *string                `json:"actor_name,omitempty"` // Only for admin
+	Action      string                 `json:"action"`
+	Description string                 `json:"description,omitempty"` // Human-readable description
+	EntityType  string                 `json:"entity_type"`
+	EntityID    string                 `json:"entity_id"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	IPAddress   string                 `json:"ip_address,omitempty"`
+	CreatedAt   time.Time              `json:"created_at"`
 }
 
 // PaginatedLogsResponse represents the paginated response
@@ -170,14 +171,15 @@ func (h *Handler) List(c *fiber.Ctx) error {
 		}
 
 		logResp := LogResponse{
-			ID:         log.ID,
-			ActorID:    actorID,
-			ActorRole:  log.ActorRole,
-			Action:     log.Action,
-			EntityType: log.EntityType,
-			EntityID:   log.EntityID,
-			IPAddress:  log.IPAddress,
-			CreatedAt:  log.CreatedAt,
+			ID:          log.ID,
+			ActorID:     actorID,
+			ActorRole:   log.ActorRole,
+			Action:      log.Action,
+			Description: log.Description,
+			EntityType:  log.EntityType,
+			EntityID:    log.EntityID,
+			IPAddress:   log.IPAddress,
+			CreatedAt:   log.CreatedAt,
 		}
 
 		// Add actor name only for admin

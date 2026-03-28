@@ -127,26 +127,31 @@ export default function DashboardLayout({
         )}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
-          <div className="flex items-center">
-            <img
-              src="/teknokratlar-logo.svg"
-              alt="Teknokratlar"
-              className="h-8 w-auto mr-3"
-            />
-            <span className="font-bold text-gray-900 text-sm leading-tight">
-              Teknokratlar
-              <br />
-              Derneği
-            </span>
+        <Link href="/applications">
+          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors">
+            <div className="flex items-center">
+              <img
+                src="/teknokratlar-logo.svg"
+                alt="Teknokratlar"
+                className="h-8 w-auto mr-3"
+              />
+              <span className="font-bold text-gray-900 text-sm leading-tight">
+                Teknokratlar
+                <br />
+                Derneği
+              </span>
+            </div>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                setSidebarOpen(false);
+              }}
+              className="lg:hidden text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-gray-400 hover:text-gray-600"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+        </Link>
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
