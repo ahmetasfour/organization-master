@@ -47,7 +47,7 @@ export const asilApplicationSchema = baseApplicationSchema.extend({
       (url) =>
         url.startsWith("https://www.linkedin.com/") ||
         url.startsWith("https://linkedin.com/"),
-      "LinkedIn profil bağlantısı gereklidir"
+      "Geçerli bir LinkedIn URL'i giriniz (https://linkedin.com/ veya https://www.linkedin.com/)"
     ),
   references: z
     .array(referenceInputSchema)
@@ -68,7 +68,7 @@ export const akademikApplicationSchema = baseApplicationSchema.extend({
       (url) =>
         url.startsWith("https://www.linkedin.com/") ||
         url.startsWith("https://linkedin.com/"),
-      "LinkedIn profil bağlantısı gereklidir"
+      "Geçerli bir LinkedIn URL'i giriniz (https://linkedin.com/ veya https://www.linkedin.com/)"
     ),
   references: z
     .array(referenceInputSchema)

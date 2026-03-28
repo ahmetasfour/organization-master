@@ -11,14 +11,15 @@ import (
 
 var (
 	// linkedInPattern validates LinkedIn profile URLs.
-	linkedInPattern = regexp.MustCompile(`^https://(www\.)?linkedin\.com/in/[a-zA-Z0-9\-]+/?$`)
+	// Accepts: https://linkedin.com/* or https://www.linkedin.com/*
+	linkedInPattern = regexp.MustCompile(`^https://(www\.)?linkedin\.com/.+$`)
 
 	// tokenPattern validates UUID v4 format tokens.
 	tokenPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 )
 
-// ValidateLinkedInURL validates that a URL is a valid LinkedIn profile URL.
-// Accepts: https://linkedin.com/in/username or https://www.linkedin.com/in/username
+// ValidateLinkedInURL validates that a URL is a valid LinkedIn URL.
+// Accepts: https://linkedin.com/* or https://www.linkedin.com/*
 func ValidateLinkedInURL(fl validator.FieldLevel) bool {
 	url := fl.Field().String()
 	if url == "" {
