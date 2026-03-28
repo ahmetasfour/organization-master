@@ -46,6 +46,29 @@ type ReferenceSummary struct {
 	Status        string  `json:"status"` // pending | positive | negative | unknown | expired
 }
 
+// ReferenceListResponse is returned by GET /api/v1/applications/:id/references.
+type ReferenceListResponse struct {
+	References []ReferenceItem `json:"references"`
+	Total      int             `json:"total"`
+	Responded  int             `json:"responded"`
+	Positive   int             `json:"positive"`
+	Negative   int             `json:"negative"`
+	Unknown    int             `json:"unknown"`
+}
+
+// ReferenceItem is a single reference in the list response.
+type ReferenceItem struct {
+	ID            string  `json:"id"`
+	ApplicationID string  `json:"application_id"`
+	RefereeUserID string  `json:"referee_user_id"`
+	RefereeName   string  `json:"referee_name"`
+	RefereeEmail  string  `json:"referee_email"`
+	Status        string  `json:"status"`                  // pending | positive | negative | unknown
+	ResponseType  *string `json:"response_type,omitempty"` // positive | negative | unknown
+	RespondedAt   *string `json:"responded_at,omitempty"`
+	CreatedAt     string  `json:"created_at"`
+}
+
 // ─── Cross-package helpers ─────────────────────────────────────────────────────
 
 // AppContext carries the minimal application data needed by reference operations.

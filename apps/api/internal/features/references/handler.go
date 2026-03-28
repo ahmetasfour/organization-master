@@ -73,6 +73,22 @@ func (h *Handler) SubmitResponse(c *fiber.Ctx) error {
 	return shared.Success(c, fiber.Map{"message": "Yanıtınız kaydedildi. Katkınız için teşekkür ederiz."})
 }
 
+// GetReferences handles GET /api/v1/applications/:id/references
+// Returns all references for an application with statistics.
+func (h *Handler) GetReferences(c *fiber.Ctx) error {
+	appID := c.Params("id")
+	if appID == "" {
+		return shared.Error(c, fiber.StatusBadRequest, "MISSING_APP_ID", "Başvuru ID'si gereklidir")
+	}
+
+	data, err := h.service.ListForApplication(c.Context(), appID)
+	if err != nil {
+		return shared.Error(c, fiber.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
+	}
+
+	return shared.Success(c, data)
+}
+
 // ResendToken handles POST /api/v1/applications/:id/references/resend/:refId
 // Requires koordinator or admin role.
 func (h *Handler) ResendToken(c *fiber.Ctx) error {

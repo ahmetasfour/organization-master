@@ -43,6 +43,75 @@ func NewService(
 	}
 }
 
+// ─── ListForApplication ────────────────────────────────────────────────────────
+
+// ListForApplication returns all references for an application with statistics.
+func (s *Service) ListForApplication(ctx context.Context, appID string) (*ReferenceListResponse, error) {
+	refs, err := s.repo.FindByApplicationID(ctx, appID)
+	if err != nil {
+		return nil, fmt.Errorf("references: list for application: %w", err)
+	}
+
+	// Build response
+	items := make([]ReferenceItem, 0, len(refs))
+	stats := struct {
+		total     int
+		responded int
+		positive  int
+		negative  int
+		unknown   int
+	}{}
+
+	for _, ref := range refs {
+		stats.total++
+
+		// Determine status
+		status := "pending"
+		var responseType *string
+		var respondedAt *string
+
+		if ref.Response != nil {
+			stats.responded++
+			rt := string(ref.Response.ResponseType)
+			responseType = &rt
+			status = rt
+
+			switch ref.Response.ResponseType {
+			case ResponsePositive:
+				stats.positive++
+			case ResponseNegative:
+				stats.negative++
+			case ResponseUnknown:
+				stats.unknown++
+			}
+
+			formatted := ref.Response.CreatedAt.Format(time.RFC3339)
+			respondedAt = &formatted
+		}
+
+		items = append(items, ReferenceItem{
+			ID:            ref.ID,
+			ApplicationID: ref.ApplicationID,
+			RefereeUserID: "", // Empty for now - external referees don't have user IDs
+			RefereeName:   ref.RefereeName,
+			RefereeEmail:  ref.RefereeEmail,
+			Status:        status,
+			ResponseType:  responseType,
+			RespondedAt:   respondedAt,
+			CreatedAt:     ref.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return &ReferenceListResponse{
+		References: items,
+		Total:      stats.total,
+		Responded:  stats.responded,
+		Positive:   stats.positive,
+		Negative:   stats.negative,
+		Unknown:    stats.unknown,
+	}, nil
+}
+
 // ─── CreateForApplication ──────────────────────────────────────────────────────
 
 // CreateForApplication creates one Reference record per referee, sends tokenized

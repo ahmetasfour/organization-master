@@ -86,7 +86,11 @@ func SetupRoutes(
 	protected.Get("/applications/:id/red-history", middleware.YKOrAdmin(), appHandler.GetRedHistory)
 	protected.Patch("/applications/:id/advance", middleware.YKOrKoordinator(), appHandler.Advance)
 
-	// Reference resend — koordinator or admin only
+	// Reference routes — koordinator or admin
+	protected.Get("/applications/:id/references",
+		middleware.YKOrKoordinator(),
+		refHandler.GetReferences,
+	)
 	protected.Post("/applications/:id/references/resend/:refId",
 		middleware.KoordinatorOnly(),
 		refHandler.ResendToken,

@@ -3,6 +3,7 @@ package applications
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -101,14 +102,20 @@ func (r *Repository) GetTimeline(ctx context.Context, id string) ([]TimelineEntr
 		Action    string `gorm:"column:action"`
 		CreatedAt string `gorm:"column:created_at"`
 		ActorRole string `gorm:"column:actor_role"`
+		ToStatus  string `gorm:"column:to_status"`
 		Notes     string `gorm:"column:notes"`
 	}
 
 	rows, err := r.db.WithContext(ctx).
-		Raw(`SELECT action, created_at, actor_role, 
+		Raw(`SELECT 
+			action, 
+			created_at, 
+			actor_role,
+			IFNULL(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.to')), '') AS to_status,
 			IFNULL(JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.notes')), '') AS notes
 		FROM logs
 		WHERE entity_type = 'application' AND entity_id = ?
+		AND (action = 'application.created' OR action = 'application.status_advanced' OR action = 'application.terminated')
 		ORDER BY created_at ASC`, id).
 		Rows()
 	if err != nil {
@@ -122,8 +129,31 @@ func (r *Repository) GetTimeline(ctx context.Context, id string) ([]TimelineEntr
 		if err := r.db.ScanRows(rows, &e); err != nil {
 			continue
 		}
+
+		// Parse the timestamp
+		changedAt, parseErr := time.Parse("2006-01-02 15:04:05", e.CreatedAt)
+		if parseErr != nil {
+			// Try RFC3339 format as fallback
+			changedAt, parseErr = time.Parse(time.RFC3339, e.CreatedAt)
+			if parseErr != nil {
+				continue
+			}
+		}
+
+		// Determine the status to show
+		var status string
+		if e.Action == "application.created" {
+			status = "başvuru_alındı"
+		} else if e.ToStatus != "" {
+			status = e.ToStatus
+		} else {
+			// Skip entries without clear status
+			continue
+		}
+
 		entries = append(entries, TimelineEntry{
-			Status:    ApplicationStatus(e.Action),
+			Status:    ApplicationStatus(status),
+			ChangedAt: changedAt,
 			ChangedBy: e.ActorRole,
 			Notes:     e.Notes,
 		})
